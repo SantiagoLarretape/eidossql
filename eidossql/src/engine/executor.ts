@@ -41,6 +41,8 @@ interface RelRow {
 interface Relation {
   cols: RelCol[];
   rows: RelRow[];
+  /** display names of the tables/CTEs/subqueries this relation derives from */
+  sources: string[];
 }
 
 interface TableEntry {
@@ -106,6 +108,8 @@ class Executor {
   inSetCache = new Map<Query, { set: Set<string>; hasNull: boolean }>();
   /** work meter — aborts runaway queries instead of freezing the tab */
   work = 0;
+  /** stable color slot per source entity (table / CTE / subquery alias) */
+  sourceColors = new Map<string, number>();
 
   constructor(sql: string, dataset: Dataset) {
     this.sql = sql;
@@ -117,7 +121,7 @@ class Executor {
         isInt: c.type === 'integer',
       }));
       const rows: RelRow[] = t.rows.map((r, i) => ({ id: `${t.name}:${i}`, vals: r as Value[] }));
-      tables.set(t.name.toLowerCase(), { rel: { cols, rows }, display: t.name });
+      tables.set(t.name.toLowerCase(), { rel: { cols, rows, sources: [t.name] }, display: t.name });
     }
     this.rootEnv = { tables };
   }
@@ -143,6 +147,29 @@ class Executor {
   pushStep(s: Omit<Step, 'id'>): void {
     if (this.silentDepth > 0) return;
     this.steps.push({ ...s, id: this.stepId++ });
+  }
+
+  colorOf(name: string): number {
+    const key = name.toLowerCase();
+    let c = this.sourceColors.get(key);
+    if (c === undefined) {
+      c = this.sourceColors.size % 8;
+      this.sourceColors.set(key, c);
+    }
+    return c;
+  }
+
+  /** color-tagged sources for a step (dedupes, preserves first-seen order) */
+  tag(sources: string[]): { name: string; color: number }[] {
+    const seen = new Set<string>();
+    const out: { name: string; color: number }[] = [];
+    for (const s of sources) {
+      const key = s.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ name: s, color: this.colorOf(s) });
+    }
+    return out;
   }
 
   tick(n = 1): void {
@@ -210,6 +237,7 @@ class Executor {
         desc: `The WITH clause ran first and produced a temporary table called ${cte.name} with ${rel.rows.length} row${plural(rel.rows.length)}. The rest of the query can use it like any other table.`,
         span: { start: cte.start, end: cte.end },
         path,
+        sources: this.tag([cte.name]),
         table: this.plainViz(rel),
       });
     }
@@ -233,6 +261,7 @@ class Executor {
         desc: `This is the table the database returns for the query.`,
         span: { start: q.start, end: q.end },
         path,
+        sources: this.tag(rel.sources),
         table: this.plainViz(rel, MAX_RESULT_ROWS),
       });
     }
@@ -246,7 +275,7 @@ class Executor {
       const sub = this.execQuery(ref.query, env, [...path, `Subquery "${ref.alias}"`]);
       const cols = sub.cols.map((c) => ({ ...c, id: freshColId(c.name), source: ref.alias }));
       const rows = sub.rows.map((r, i) => ({ id: `${ref.alias}:${i}`, vals: r.vals }));
-      return { rel: { cols, rows }, alias: ref.alias, display: `subquery "${ref.alias}"` };
+      return { rel: { cols, rows, sources: [ref.alias] }, alias: ref.alias, display: `subquery "${ref.alias}"` };
     }
     const entry = env.tables.get(ref.name.toLowerCase());
     if (!entry) {
@@ -260,7 +289,7 @@ class Executor {
     const alias = ref.alias ?? entry.display;
     const cols = entry.rel.cols.map((c) => ({ ...c, id: freshColId(c.name), source: alias }));
     const rows = entry.rel.rows.map((r) => ({ id: `${alias}:${r.id}`, vals: r.vals }));
-    return { rel: { cols, rows }, alias, display: entry.display };
+    return { rel: { cols, rows, sources: [entry.display] }, alias, display: entry.display };
   }
 
   execJoin(left: Relation, join: Join, env: Env, path: string[]): Relation {
@@ -473,7 +502,7 @@ class Executor {
       unmatchedRight = right.rows.filter((r) => !rightMatched.has(r.id)).length;
     }
 
-    const rel: Relation = { cols, rows: resultRows };
+    const rel: Relation = { cols, rows: resultRows, sources: [...left.sources, ...right.sources] };
     const typeName = type === 'inner' ? 'JOIN' : `${type.toUpperCase()} JOIN`;
     const descParts: string[] = [];
     if (type === 'cross') {
@@ -514,7 +543,8 @@ class Executor {
       insight: insights[type],
       span: { start: join.start, end: join.end },
       path,
-      table: this.viz({ cols, rows: vizRows }, { rowStatus, notes, groups }),
+      sources: this.tag(rel.sources),
+      table: this.viz({ cols, rows: vizRows, sources: rel.sources }, { rowStatus, notes, groups }),
     });
     return rel;
   }
@@ -537,13 +567,14 @@ class Executor {
           : undefined,
         span: sc.fromSpan,
         path,
+        sources: this.tag(rel.sources),
         table: this.plainViz(rel),
       });
       for (const j of sc.from.joins) {
         rel = this.execJoin(rel, j, env, path);
       }
     } else {
-      rel = { cols: [], rows: [{ id: 'r0', vals: [] }] };
+      rel = { cols: [], rows: [{ id: 'r0', vals: [] }], sources: [] };
     }
 
     const baseCtx = (row: RelRow): Ctx => ({
@@ -582,9 +613,10 @@ class Executor {
         insight: 'WHERE sees the raw rows — it runs before GROUP BY and before SELECT, which is why it can\'t use column aliases or aggregates.',
         span: sc.whereSpan,
         path,
+        sources: this.tag(rel.sources),
         table: this.viz(rel, { rowStatus }),
       });
-      rel = { cols: rel.cols, rows: kept };
+      rel = { cols: rel.cols, rows: kept, sources: rel.sources };
     }
 
     // Decide on grouping
@@ -657,6 +689,7 @@ class Executor {
           insight: 'From here on, the query works with whole groups, not individual rows. Each group will become exactly one output row.',
           span: sc.groupSpan,
           path,
+          sources: this.tag(rel.sources),
           table: this.viz(rel, { order, groups: colorOf }),
         });
       }
@@ -694,7 +727,7 @@ class Executor {
         colorOf.set(row.id, gi);
       });
 
-      const groupedRel: Relation = { cols: [...keyCols, ...aggCols], rows: groupedRows };
+      const groupedRel: Relation = { cols: [...keyCols, ...aggCols], rows: groupedRows, sources: rel.sources };
       const aggDesc = aggCalls.length
         ? ` Aggregates (${aggCalls.map((c) => this.short(this.text(c), 26)).join(', ')}) are computed across each group's rows.`
         : '';
@@ -709,6 +742,7 @@ class Executor {
           : `With an aggregate but no GROUP BY, the whole table is one big group producing one row.${aggDesc}`,
         span: sc.groupSpan ?? sc.selectSpan,
         path,
+        sources: this.tag(groupedRel.sources),
         table: this.viz(groupedRel, {
           groups: colorOf,
           rowStatus: new Map(groupedRows.map((r) => [r.id, 'new' as RowStatus])),
@@ -754,9 +788,10 @@ class Executor {
         insight: 'WHERE filters rows before grouping; HAVING filters groups after. That\'s why HAVING may use aggregates and WHERE may not.',
         span: sc.havingSpan,
         path,
+        sources: this.tag(rel.sources),
         table: this.viz(rel, { rowStatus }),
       });
-      rel = { cols: rel.cols, rows: kept };
+      rel = { cols: rel.cols, rows: kept, sources: rel.sources };
     }
 
     // window functions
@@ -796,7 +831,7 @@ class Executor {
         ...displayOrder.map((r) => byId.get(r.id)!),
         ...newRows.filter((r) => !seenIds.has(r.id)),
       ];
-      rel = { cols: [...rel.cols, ...newCols], rows: orderedRows };
+      rel = { cols: [...rel.cols, ...newCols], rows: orderedRows, sources: rel.sources };
       const first = windowCalls[0];
       const spec = first.over!;
       const parts: string[] = [];
@@ -817,6 +852,7 @@ class Executor {
         insight: 'OVER (...) means: look at related rows ("the window") while keeping every row. PARTITION BY is like a GROUP BY that doesn\'t collapse.',
         span: { start: first.start, end: first.end },
         path,
+        sources: this.tag(rel.sources),
         table: this.viz(rel, { groups: partitionColor, colStatus }),
       });
     }
@@ -862,7 +898,7 @@ class Executor {
     outCols.forEach((c) => {
       if (!carried.has(c.id)) colStatus.set(c.id, 'new');
     });
-    let outRel: Relation = { cols: outCols, rows: outRows };
+    let outRel: Relation = { cols: outCols, rows: outRows, sources: rel.sources };
     this.pushStep({
       phase: 'select',
       chip: 'SELECT',
@@ -874,6 +910,7 @@ class Executor {
       insight: 'SELECT runs near the end — after FROM, WHERE, and GROUP BY. The column list is a final "what do I want to see" projection.',
       span: sc.selectSpan,
       path,
+      sources: this.tag(outRel.sources),
       table: this.viz(outRel, { colStatus }),
     });
 
@@ -904,9 +941,10 @@ class Executor {
         insight: 'DISTINCT compares entire output rows (every selected column together), not just one column.',
         span: sc.selectSpan,
         path,
+        sources: this.tag(outRel.sources),
         table: this.viz(outRel, { rowStatus, notes }),
       });
-      outRel = { cols: outRel.cols, rows: kept };
+      outRel = { cols: outRel.cols, rows: kept, sources: outRel.sources };
     }
 
     // ORDER BY / LIMIT (tail of this query level)
@@ -1100,6 +1138,7 @@ class Executor {
       desc = `EXCEPT keeps rows from the first result that do NOT appear in the second: ${result.length} row${plural(result.length)}.`;
     }
 
+    const sources = [...left.sources, ...right.sources];
     this.pushStep({
       phase: 'setop',
       chip: opName,
@@ -1108,9 +1147,10 @@ class Executor {
       insight: op.op === 'union' ? 'UNION quietly removes duplicate rows. If you want to keep them (it\'s also faster), use UNION ALL.' : undefined,
       span: op.opSpan,
       path,
-      table: this.viz({ cols, rows: all }, { rowStatus, notes, groups }),
+      sources: this.tag(sources),
+      table: this.viz({ cols, rows: all, sources }, { rowStatus, notes, groups }),
     });
-    return { cols, rows: result };
+    return { cols, rows: result, sources };
   }
 
   // ---------- ORDER BY / LIMIT ----------
@@ -1176,7 +1216,7 @@ class Executor {
       return a.i - b.i; // stable
     });
     const sorted = decorated.map((d) => d.r);
-    const out: Relation = { cols: rel.cols, rows: sorted };
+    const out: Relation = { cols: rel.cols, rows: sorted, sources: rel.sources };
     this.pushStep({
       phase: 'orderby',
       chip: 'ORDER BY',
@@ -1185,6 +1225,7 @@ class Executor {
       insight: 'Without ORDER BY, SQL guarantees no particular row order. Sorting is one of the last things the database does.',
       span: q.orderSpan,
       path,
+      sources: this.tag(out.sources),
       table: this.viz(out),
     });
     return out;
@@ -1217,9 +1258,10 @@ class Executor {
       insight: q.orderBy ? undefined : 'Careful: without an ORDER BY, LIMIT keeps an *arbitrary* set of rows — the database promises nothing about which ones.',
       span: q.limitSpan,
       path,
+      sources: this.tag(rel.sources),
       table: this.viz(rel, { rowStatus, notes }),
     });
-    return { cols: rel.cols, rows: kept };
+    return { cols: rel.cols, rows: kept, sources: rel.sources };
   }
 
   // ---------- window computation ----------
@@ -1819,6 +1861,7 @@ class Executor {
           'The outer query now continues with this result plugged in.',
         span: { start: q.start, end: q.end },
         path: ctx.path,
+        sources: this.tag(rel.sources),
         table: this.plainViz(rel),
       });
     }

@@ -42,8 +42,10 @@
   --sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
+/* Dark tokens apply when the OS prefers dark (and no explicit light choice),
+   or when the user explicitly toggles dark. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     color-scheme: dark;
     --page: #0d0d0d;
     --surface: #1a1a19;
@@ -77,6 +79,41 @@
     --tok-comment: #898781;
     --tok-op: #c3c2b7;
   }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --ink: #ffffff;
+  --ink-2: #c3c2b7;
+  --muted: #898781;
+  --grid: #2c2c2a;
+  --baseline: #383835;
+  --ring: rgba(255, 255, 255, 0.1);
+
+  --accent: #3987e5;
+  --accent-deep: #6da7ec;
+  --good: #0ca30c;
+  --good-text: #0ca30c;
+  --bad: #d03b3b;
+  --new: #3987e5;
+
+  --g0: #3987e5;
+  --g1: #199e70;
+  --g2: #c98500;
+  --g3: #008300;
+  --g4: #9085e9;
+  --g5: #e66767;
+  --g6: #d55181;
+  --g7: #d95926;
+
+  --tok-kw: #9085e9;
+  --tok-str: #7bc77b;
+  --tok-num: #86b6ef;
+  --tok-fn: #eb8a5c;
+  --tok-comment: #898781;
+  --tok-op: #c3c2b7;
 }
 
 * {
@@ -136,9 +173,19 @@ textarea {
   font-weight: 700;
 }
 .brand-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.5px;
   font-size: 17px;
   font-weight: 700;
   letter-spacing: -0.01em;
+}
+/* the wordmark "E": a Doric column (capital, fluted shaft, stepped base) */
+.brand-e {
+  height: 15px;
+  width: auto;
+  color: var(--accent);
+  transform: translateY(0.5px);
 }
 .brand-tag {
   color: var(--muted);
@@ -170,6 +217,23 @@ textarea {
   border: 1px solid var(--ring);
   border-radius: 8px;
   background: var(--surface);
+}
+.icon-btn {
+  padding: 5px 10px;
+  border: 1px solid var(--ring);
+  border-radius: 8px;
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.icon-btn:hover {
+  border-color: var(--accent);
+}
+.present-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
 
 .panes {
@@ -634,6 +698,30 @@ th.col-new {
   background: var(--surface);
 }
 
+.timeline-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.tl-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 11px;
+  color: var(--ink-2);
+}
+.tl-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--mono);
+}
+.tl-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px var(--ring);
+}
 .timeline {
   display: flex;
   gap: 6px;
@@ -661,8 +749,7 @@ th.col-new {
   border-color: var(--accent);
 }
 .chip-done {
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
+  opacity: 0.72;
 }
 .chip-active {
   background: var(--accent);
@@ -787,6 +874,190 @@ th.col-new {
 .empty-hint {
   color: var(--muted);
   font-size: 13px;
+}
+
+/* ---------- CSV dialog list ---------- */
+
+.csv-list {
+  list-style: none;
+  margin: 8px 0 4px;
+  padding: 0;
+  font-size: 12.5px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.csv-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 2px;
+  border-bottom: 1px solid var(--grid);
+}
+.csv-name {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.csv-meta {
+  color: var(--ink-2);
+  text-align: right;
+}
+.csv-bad .csv-meta {
+  color: var(--bad);
+}
+
+/* ---------- Greek touch #2: meander under the timeline ---------- */
+
+.timeline-wrap {
+  position: relative;
+  padding-bottom: 9px;
+}
+.timeline-wrap::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 7px;
+  opacity: 0.45;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 7' width='12' height='7'%3E%3Cpath d='M0 6 H10 V1 H4 V3.5 H7' fill='none' stroke='%23898781' stroke-width='1.2'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-size: 12px 7px;
+  pointer-events: none;
+}
+
+/* ---------- count-up numbers ---------- */
+
+.counting {
+  color: var(--accent-deep);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- read-only SQL (presentation mode & print) ---------- */
+
+.present-sql {
+  display: none;
+  flex: none;
+  border: 1px solid var(--ring);
+  border-radius: 10px;
+  background: var(--page);
+  max-height: 30vh;
+  overflow: auto;
+}
+.sql-view {
+  margin: 0;
+  padding: 12px 16px;
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+/* ---------- presentation mode ---------- */
+
+.presenting .left-pane {
+  display: none;
+}
+.presenting .ctl {
+  display: none;
+}
+.presenting .present-sql {
+  display: block;
+}
+.presenting .stage {
+  padding: 20px 34px;
+  gap: 14px;
+}
+.presenting .sql-view {
+  font-size: 16px;
+}
+.presenting .step-title {
+  font-size: 27px;
+}
+.presenting .step-desc {
+  font-size: 17px;
+}
+.presenting .step-insight {
+  font-size: 15px;
+}
+.presenting .viz-table {
+  font-size: 15.5px;
+}
+.presenting .viz-table td {
+  padding: 8px 14px;
+}
+.presenting .viz-table th {
+  padding: 10px 14px 8px;
+}
+.presenting .col-name {
+  font-size: 14.5px;
+}
+.presenting .chip {
+  font-size: 12.5px;
+  padding: 5px 12px;
+}
+.presenting .step-counter,
+.presenting .tl-legend {
+  font-size: 13px;
+}
+
+/* ---------- print: a clean handout of the current step ---------- */
+
+@media print {
+  :root,
+  :root[data-theme='dark'] {
+    color-scheme: light;
+    --page: #ffffff;
+    --surface: #ffffff;
+    --ink: #000000;
+    --ink-2: #333330;
+    --muted: #666660;
+    --grid: #ddddd8;
+    --baseline: #bbbbb6;
+    --ring: rgba(0, 0, 0, 0.25);
+    --accent: #1c5cab;
+    --accent-deep: #104281;
+    --tok-kw: #4a3aa7;
+    --tok-str: #006300;
+    --tok-num: #104281;
+    --tok-fn: #9a3412;
+    --tok-comment: #666660;
+    --tok-op: #333330;
+  }
+  .topbar-controls,
+  .left-pane,
+  .controls,
+  .nav-btns {
+    display: none !important;
+  }
+  .app,
+  .panes,
+  .stage,
+  .stage-table,
+  .tbl-scroll {
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
+  .present-sql {
+    display: block;
+    max-height: none;
+    overflow: visible;
+    margin-bottom: 12px;
+    page-break-inside: avoid;
+  }
+  .stage-table {
+    border: none;
+  }
+  .viz-table th {
+    position: static;
+  }
+  .viz-table tr {
+    page-break-inside: avoid;
+  }
+  .step-head {
+    min-height: 0;
+  }
 }
 
 /* ---------- responsive ---------- */

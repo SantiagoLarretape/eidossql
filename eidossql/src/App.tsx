@@ -9,8 +9,12 @@ import { StepTable } from './ui/StepTable';
 import { Timeline } from './ui/Timeline';
 import { SchemaPanel } from './ui/SchemaPanel';
 import { ConnectPanel } from './ui/ConnectPanel';
+import { CsvPanel } from './ui/CsvPanel';
+import { SqlView } from './ui/SqlView';
+import { AnimatedDesc } from './ui/AnimatedDesc';
 
 const DEFAULT_SQL = EXAMPLES.find((e) => e.id === 'having')!.sql;
+const THEME_KEY = 'eidossql.theme';
 
 interface RunState {
   steps: Step[];
@@ -34,6 +38,28 @@ function lineColOf(sql: string, pos: number): { line: number; col: number } {
   return { line, col };
 }
 
+function initialTheme(): 'light' | 'dark' {
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === 'light' || saved === 'dark') return saved;
+  } catch { /* ignore */ }
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+/** The wordmark "E" as a Doric column: capital, fluted shaft, stepped base. */
+function ColumnE() {
+  return (
+    <svg className="brand-e" viewBox="0 0 22 26" aria-hidden="true" fill="currentColor">
+      <rect x="0" y="0" width="22" height="3.6" rx="1" />
+      <rect x="1.6" y="4.6" width="17" height="2.6" rx="1" />
+      <rect x="0" y="0" width="4.6" height="26" rx="1" />
+      <rect x="1.6" y="11.7" width="13.5" height="2.8" rx="1" />
+      <rect x="1.6" y="18.8" width="17" height="2.6" rx="1" />
+      <rect x="0" y="22.4" width="22" height="3.6" rx="1" />
+    </svg>
+  );
+}
+
 export default function App() {
   const [datasetId, setDatasetId] = useState<string>('parch');
   const [sql, setSql] = useState<string>(DEFAULT_SQL);
@@ -43,17 +69,38 @@ export default function App() {
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [remote, setRemote] = useState<Dataset | null>(null);
+  const [csvDs, setCsvDs] = useState<Dataset | null>(null);
   const [showConnect, setShowConnect] = useState(false);
+  const [showCsv, setShowCsv] = useState(false);
+  const [present, setPresent] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>(initialTheme);
   const playRef = useRef<number | null>(null);
 
-  const allDatasets: Dataset[] = remote ? [...datasets, remote] : datasets;
+  const allDatasets: Dataset[] = [
+    ...datasets,
+    ...(remote ? [remote] : []),
+    ...(csvDs ? [csvDs] : []),
+  ];
   const dataset: Dataset = allDatasets.find((d) => d.id === datasetId) ?? datasets[0];
+
+  // manual theme (overrides the OS setting; persisted)
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem(THEME_KEY, theme);
+    } catch { /* ignore */ }
+  }, [theme]);
 
   const visualize = useCallback(
     (sqlText?: string, dsId?: string) => {
       const text = sqlText ?? sql;
       const id = dsId ?? datasetId;
-      const ds = (remote ? [...datasets, remote] : datasets).find((d) => d.id === id) ?? datasets[0];
+      const all = [
+        ...datasets,
+        ...(remote ? [remote] : []),
+        ...(csvDs ? [csvDs] : []),
+      ];
+      const ds = all.find((d) => d.id === id) ?? datasets[0];
       setPlaying(false);
       try {
         const { steps } = runQuery(text, ds);
@@ -76,7 +123,7 @@ export default function App() {
         setCur(0);
       }
     },
-    [sql, datasetId, remote],
+    [sql, datasetId, remote, csvDs],
   );
 
   const loadExample = (id: string) => {
@@ -105,9 +152,13 @@ export default function App() {
     };
   }, [playing, cur, steps.length, speed]);
 
-  // keyboard navigation (when not typing)
+  // keyboard: arrows step, Esc exits presentation mode
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setPresent(false);
+        return;
+      }
       const el = document.activeElement;
       if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement || el instanceof HTMLSelectElement) return;
       if (e.key === 'ArrowRight') {
@@ -125,11 +176,13 @@ export default function App() {
   }, [steps.length]);
 
   return (
-    <div className="app">
+    <div className={`app${present ? ' presenting' : ''}`}>
       <header className="topbar">
-        <div className="brand">
-          <span className="brand-mark">⧉</span>
-          <span className="brand-name">EidosSQL</span>
+        <div className="brand" aria-label="EidosSQL">
+          <span className="brand-name">
+            <ColumnE />
+            <span aria-hidden="true">idosSQL</span>
+          </span>
           <span className="brand-tag">
             <span className="brand-greek" title="eîdos — the form, the thing seen">εἶδος</span>
             {' · '}watch SQL think — one clause at a time
@@ -141,17 +194,16 @@ export default function App() {
             <select
               value={datasetId}
               onChange={(e) => {
-                if (e.target.value === '__connect') {
-                  setShowConnect(true);
-                } else {
-                  setDatasetId(e.target.value);
-                }
+                if (e.target.value === '__connect') setShowConnect(true);
+                else if (e.target.value === '__csv') setShowCsv(true);
+                else setDatasetId(e.target.value);
               }}
             >
               {allDatasets.map((d) => (
                 <option key={d.id} value={d.id}>{d.label}</option>
               ))}
               <option value="__connect">➕ Connect your own Postgres…</option>
+              <option value="__csv">📄 Load CSV files…</option>
             </select>
           </label>
           <label className="ctl">
@@ -167,6 +219,21 @@ export default function App() {
               ))}
             </select>
           </label>
+          <button
+            className="icon-btn"
+            onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+            title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            aria-label="toggle theme"
+          >
+            {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
+          <button
+            className={`icon-btn present-btn${present ? ' active' : ''}`}
+            onClick={() => setPresent((p) => !p)}
+            title={present ? 'Exit presentation mode (Esc)' : 'Presentation mode: big type, no editor'}
+          >
+            {present ? '✕ Exit' : '🎬 Present'}
+          </button>
         </div>
       </header>
 
@@ -198,6 +265,11 @@ export default function App() {
         </aside>
 
         <main className="stage">
+          {run && (
+            <div className="present-sql">
+              <SqlView sql={run.sql} highlight={!stale && step ? step.span : null} />
+            </div>
+          )}
           {(() => {
             const sampled = dataset.tables.filter((t) => t.totalRows);
             if (!sampled.length) return null;
@@ -224,7 +296,9 @@ export default function App() {
                   </span>
                 </div>
                 <h2 className="step-title">{step.title}</h2>
-                <p className="step-desc">{step.desc}</p>
+                <p className="step-desc">
+                  <AnimatedDesc key={step.id} text={step.desc} />
+                </p>
                 {step.insight && <p className="step-insight">💡 {step.insight}</p>}
               </div>
 
@@ -295,6 +369,16 @@ export default function App() {
             setRemote(ds);
             setDatasetId(ds.id);
             setShowConnect(false);
+          }}
+        />
+      )}
+      {showCsv && (
+        <CsvPanel
+          onClose={() => setShowCsv(false)}
+          onLoaded={(ds) => {
+            setCsvDs(ds);
+            setDatasetId(ds.id);
+            setShowCsv(false);
           }}
         />
       )}

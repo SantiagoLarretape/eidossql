@@ -42,7 +42,7 @@ function classify(t: Token, nextIsParen: boolean): string {
   }
 }
 
-function buildSegments(sql: string, active?: Span | null, err?: Span | null): Segment[] {
+export function buildSegments(sql: string, active?: Span | null, err?: Span | null): Segment[] {
   // token classification (never throws: fall back to plain text)
   let toks: Token[] = [];
   try {

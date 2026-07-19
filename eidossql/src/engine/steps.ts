@@ -56,6 +56,12 @@ export interface Step {
   span?: Span;
   /** nesting context, e.g. ["CTE acct_orders"] or ["UNION — branch 2"] */
   path: string[];
+  /**
+   * the tables / CTEs / subqueries feeding this step's relation, each with a
+   * stable color slot — drives the timeline chip tinting (a join chip shows
+   * both sides half-and-half) and the timeline legend
+   */
+  sources?: { name: string; color: number }[];
   table: VizTable;
 }
 

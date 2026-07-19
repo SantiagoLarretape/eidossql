@@ -64,7 +64,22 @@ Each step shows:
 - **The table** — the animated state of the data at that moment.
 
 Controls: ← / → keys, Prev/Next buttons, Play with 0.5×–2× speed, clickable
-timeline chips (indented `›` for nested steps), and a step counter.
+timeline chips (indented `›` for nested steps), and a step counter. Row
+counts in each description tick up in a quick count-up animation (disabled
+for reduced-motion users), pulling the eye to the step's payload.
+
+**Timeline chips are color-coded by source.** Every chip is tinted by the
+table(s), CTE(s), or subqueries its step is working on — assigned stable
+colors in order of first appearance and listed in a legend above the
+timeline. A JOIN chip is shaded **half-and-half** with its two sides'
+colors; steps inside a CTE wear that CTE's ingredients' colors; the "CTE
+ready" chip introduces the CTE's own color, which then reappears wherever
+the main query uses it — including inside a HAVING subquery that reads it.
+The goal: students can glance at the chip row and know *which table each
+clause is about* without re-reading the query, precisely when CTEs and
+subqueries make that hardest. A Greek-key (meander) rule underlines the
+timeline — one of exactly two Greek identity touches in the UI (the other
+is the wordmark's column-capital "E").
 
 ### 4. The animated table — reading the visuals
 
@@ -100,6 +115,25 @@ the caps are presentation only.
   any table is sampled, the schema panel labels it ("300 of 6,912 rows
   (sample)") and a persistent amber banner warns that results on a sample
   can differ from the full database. With "all rows", results are exact.
+- **Load CSV files** (Database → "📄 Load CSV files…") — each file becomes
+  a table named after the file; the first row supplies column names and
+  types are inferred per column (integer, numeric, date, timestamp,
+  boolean, text; blank cells become NULL). Everything parses in the
+  browser — nothing is uploaded anywhere. This lets an instructor hand out
+  any dataset as plain CSVs with zero database setup.
+
+### 5a. Presentation mode, themes, and printing
+
+- **🎬 Present** (top bar, Esc to exit) is the projector view: the editor
+  pane disappears, a read-only syntax-highlighted copy of the query docks
+  above the stage — keeping the clause spotlight visible — and type sizes
+  step up across the board.
+- **☀️/🌙 theme toggle** — light and dark are both first-class; the manual
+  choice persists and overrides the OS setting (projectors want light mode
+  regardless of the presenter's laptop).
+- **Printing** any step produces a clean handout: light-forced colors, the
+  full query with highlighting, the step narration, and the table laid out
+  for paper with the app chrome stripped — homework material for free.
 
 ### 6. Examples
 
@@ -155,8 +189,10 @@ src/engine/executor.ts    the evaluator/step-emitter (the heart, ~1,400 loc)
 src/engine/steps.ts       Step/VizTable model consumed by the UI
 src/data/datasets.ts      embedded Parch & Posey slice (generated from live DB)
 src/data/remote.ts        client for the Postgres bridge
-src/ui/*                  Editor, StepTable, Timeline, SchemaPanel,
-                          ConnectPanel, examples
+src/data/csv.ts           CSV parser + type inference → Dataset
+src/ui/*                  Editor, StepTable, Timeline (source-colored chips),
+                          SchemaPanel, ConnectPanel, CsvPanel, SqlView
+                          (read-only SQL for present/print), AnimatedDesc
 server/pgBridge.ts        local-Postgres bridge (Vite dev/preview middleware)
 scripts/smoke.ts          engine smoke test (26 cases, incl. every example)
 scripts/verify.ts         engine-vs-Postgres differential test (61 cases)
@@ -239,6 +275,14 @@ a joined row is `left⋈right`; a NULL-extended row is `left⋈∅`; a group row
 is `g:<key>`; set-op branches are prefixed `a:`/`b:`. Because ids persist
 across steps, the UI's FLIP layout animation renders "this row moved /
 survived / vanished" without the engine knowing anything about animation.
+
+**Source tracking** works the same way for tables: every relation carries
+`sources` — the display names of the base tables, CTEs, and subquery
+aliases it derives from. FROM sets it, JOIN concatenates both sides,
+grouping/projection/set-ops carry or merge it, and each emitted step tags
+its sources with a stable color slot (assigned in order of first
+appearance). The timeline renders those tags as chip tints — one wash, a
+half-and-half join split, or stripes — plus the legend.
 
 Pipeline details, in order:
 
@@ -408,6 +452,24 @@ dev server* (`configureServer`/`configurePreviewServer`):
 - Playback pace is 2.4 s/step ÷ speed; keyboard arrows are ignored while
   typing in inputs; `MotionConfig reducedMotion="user"` plus a CSS
   reduced-motion block respect accessibility settings.
+- **Presentation mode** is one boolean and a CSS class: `.presenting` hides
+  the editor pane, reveals the docked `SqlView` (the editor's own
+  segment-builder rendering into a read-only `<pre>`, spotlight included),
+  and scales typography. Esc exits. **Print** reuses the same `SqlView`
+  via `@media print`, which also forces light tokens and unclips the table.
+- **Theme** is a `data-theme` attribute on `<html>`: dark tokens apply
+  under `prefers-color-scheme: dark` *unless* the user chose light, and
+  under an explicit dark choice regardless of the OS. The choice persists
+  in localStorage.
+- **Count-up descriptions** split the text on number tokens and animate
+  each integer 0→value over ~500 ms (cubic ease-out, `requestAnimationFrame`),
+  snapping to the exact original formatting at the end; decimals and
+  reduced-motion users render statically.
+- **CSV ingestion** (`src/data/csv.ts`) is a hand-rolled RFC-4180 parser
+  (quoted fields, `""` escapes, CRLF) plus per-column type inference by
+  regex consensus over non-empty values; conversion mirrors the embedded
+  dataset's value conventions so the engine treats all three sources
+  identically.
 
 ### 16. Design system
 

@@ -16,7 +16,7 @@ export interface Dataset {
   label: string;
   description: string;
   tables: TableData[];
-  source?: 'embedded' | 'postgres';
+  source?: 'embedded' | 'postgres' | 'csv';
 }
 
 export const parch: Dataset = {
