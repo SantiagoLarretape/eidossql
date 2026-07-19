@@ -1,0 +1,127 @@
+# EidosSQL
+
+**Watch SQL think — one clause at a time.**
+
+> **εἶδος** (*eîdos*) — in ancient Greek, the *form*: the thing seen, the shape
+> by which something is known. In modern Greek, a *type* or *kind*. EidosSQL
+> makes the form of a query visible — one step, one type, one table at a time.
+
+EidosSQL is an interactive teaching tool built for DSO 435 (Data Base
+Management Systems, USC Marshall). Paste in any query from the first half of
+the course — joins, grouping, subqueries, CTEs, set operations, window
+functions — and it replays the query the way the database actually evaluates
+it, as a sequence of animated table states:
+
+1. **FROM** — start with the whole table
+2. **JOIN** — watch rows pair up (and see exactly which rows fail to match,
+   and what LEFT JOIN does about it)
+3. **WHERE** — every row is marked ✓ kept or ✕ dropped, then the dropped rows
+   animate away
+4. **GROUP BY** — rows are colored by group, then collapse into one row per
+   group as aggregates are computed
+5. **HAVING** — whole groups pass or fail
+6. **Window functions** — partitions are striped and the computed column
+   appears, without collapsing rows
+7. **SELECT** — only now are columns picked and computed
+8. **DISTINCT / UNION / ORDER BY / LIMIT** — dedupe, stack, reorder (with
+   FLIP animations), and cut
+
+CTEs, subqueries, and set-operation branches run as *nested* step groups with
+breadcrumb badges, so a capstone-level `UNION`-of-`WITH`-of-`CASE` query
+unfolds into a story you can step through with arrow keys or play like a
+movie. Each step also highlights the clause of the
+SQL text it corresponds to, states what happened in plain English with real
+row counts, and (where relevant) adds a teaching note — e.g. *why* `WHERE`
+can't see column aliases, or what `LIMIT` without `ORDER BY` really promises.
+
+Error messages are teaching-first, too: using an alias in `WHERE`, an
+aggregate in `WHERE`, double quotes for a text value, or a subquery in `FROM`
+without an alias all produce the hint a TA would give at office hours.
+
+## Datasets
+
+The class teaching database is embedded (no server needed): **Parch &
+Posey** — accounts, orders, sales_reps, region, web_events — trimmed to a
+referentially-intact sample small enough that every row stays visible on
+screen. It keeps the fun edge cases: an account with no orders, a region
+with no reps.
+
+A progression of ~20 curated examples mirrors the semester: SELECT basics →
+joins → aggregation → subqueries/CTEs → window functions → capstone queries
+at end-of-course difficulty.
+
+### …or connect your own database
+
+When running locally, **Database → "Connect your own Postgres…"** points
+EidosSQL at any database on your machine — the same ones you use in DBeaver
+(`postgres://localhost:5432/northwind`, or just `northwind`). A small bridge
+inside the dev server introspects the schema and loads a row sample into the
+browser; your connection string never leaves your computer, and the bridge
+only reads (its session is forced read-only).
+
+You choose how much to load — from a 100-row sample up to **all rows**
+(50,000 per table max). Equality joins use a hash-join path, so
+full-size course databases (thousands of rows) compute instantly and
+**results match the real database exactly**; intermediate steps display the
+first 100 rows, and the final result view shows up to 1,000. If you do load
+a sample, EidosSQL labels sampled tables and shows a persistent banner,
+because results on a sample can differ — that caveat is itself a good
+classroom conversation. A work budget in the engine catches runaway queries
+(e.g. a cross join of huge tables) with a teaching hint instead of a frozen
+tab.
+
+## Running it
+
+```bash
+npm install
+npm run dev      # then open http://localhost:5173
+```
+
+The app is fully client-side, so `npm run build` produces a static `dist/`
+that can be hosted anywhere (GitHub Pages, Netlify, …). On a static host
+everything works except connecting to your own Postgres, which by nature
+requires running locally — the UI explains this if a student tries.
+
+## How it works
+
+EidosSQL contains a from-scratch SQL engine (`src/engine/`) written in
+TypeScript: a tokenizer, a recursive-descent parser that attaches source
+spans to every clause (that's what powers the editor highlighting), and an
+executor that evaluates queries in SQL's logical clause order while emitting
+a visualization snapshot at every stage. Rows carry stable identities across
+snapshots, which is what lets the UI animate a row's journey (framer-motion
+layout animations) instead of just swapping tables.
+
+The engine implements Postgres semantics for the course subset — including
+three-valued NULL logic, integer division, `UNION` dedup, default window
+frames (running totals include peer rows), `EXTRACT` on timestamp
+differences, and correlated subqueries.
+
+### Fidelity check
+
+`npm run verify` loads the embedded dataset into a scratch local Postgres
+database, runs a 61-query battery (all join types — both hash and
+nested-loop paths — grouping edge cases, all window function classes, set
+ops, correlated subqueries, date/interval math, and the capstone queries)
+through both the engine and Postgres, and diffs the results cell-by-cell.
+Current status: **61/61 identical**.
+
+## Full documentation
+
+**[docs/MASTER-GUIDE.md](docs/MASTER-GUIDE.md)** is the complete map of the
+project — every user-facing feature, how each part of the engine works
+(value semantics, parser, step-emitting executor, join planner, subquery
+correlation), the Postgres bridge, the design system, the verification
+methodology, and the full list of supported SQL and known deviations.
+
+## Project layout
+
+```
+src/
+  engine/        tokenizer, parser, executor, function library
+  data/          embedded course datasets
+  ui/            editor, animated table, timeline, schema panel, examples
+scripts/
+  smoke.ts       quick engine smoke test (npm run smoke)
+  verify.ts      engine-vs-Postgres differential test (npm run verify)
+```
