@@ -111,10 +111,10 @@ export function csvToTable(fileName: string, text: string): TableData {
     seen.set(key, n + 1);
     return n === 0 ? h : `${h}_${n + 1}`;
   });
+  const width = names.length;
+  // blank lines are skipped (pandas-style); blank *cells* become NULL
   const body = grid.slice(1).filter((r) => !(r.length === 1 && r[0].trim() === ''));
   if (body.length === 0) throw new Error(`${fileName}: no data rows found`);
-  // normalize ragged rows to header width
-  const width = names.length;
   const cells = body.map((r) => {
     const row = r.slice(0, width);
     while (row.length < width) row.push('');

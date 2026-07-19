@@ -3,7 +3,7 @@
 // textarea would be clutter but the clause highlight still matters.
 
 import { useMemo } from 'react';
-import { buildSegments } from './Editor';
+import { buildSegments } from './highlight';
 
 interface SqlViewProps {
   sql: string;

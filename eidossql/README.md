@@ -97,14 +97,28 @@ three-valued NULL logic, integer division, `UNION` dedup, default window
 frames (running totals include peer rows), `EXTRACT` on timestamp
 differences, and correlated subqueries.
 
-### Fidelity check
+### Testing & CI
 
-`npm run verify` loads the embedded dataset into a scratch local Postgres
-database, runs a 61-query battery (all join types — both hash and
-nested-loop paths — grouping edge cases, all window function classes, set
-ops, correlated subqueries, date/interval math, and the capstone queries)
-through both the engine and Postgres, and diffs the results cell-by-cell.
-Current status: **61/61 identical**.
+Three layers, shallowest to deepest:
+
+- `npm test` — 62 Vitest unit tests that run anywhere, no database needed:
+  the **teaching-error catalog** (every classic student mistake pinned to
+  its message and hint), **step structure** (phase order, kept/dropped row
+  marks, stable row identities, timeline source-coloring), value semantics
+  (three-valued NULL logic, intervals, grouping keys), CSV parsing/type
+  inference, and golden Postgres-semantics results (integer division,
+  `NOT IN` with NULL, peer-inclusive running totals, …).
+- `npm run verify` — the **differential test**: loads the embedded dataset
+  into a scratch local Postgres database, runs a 61-query battery (all join
+  types on both planner paths, grouping edge cases, all window function
+  classes, set ops, correlated subqueries, date/interval math, capstones)
+  through both the engine and Postgres, and diffs results cell-by-cell.
+  Current status: **61/61 identical**.
+- **CI** (`.github/workflows/ci.yml`) runs all of it on every push:
+  typecheck → oxlint → unit tests → the full differential suite against a
+  real `postgres:16` service container → production build. A second
+  workflow deploys the static build to GitHub Pages on pushes to main
+  (enable once in repo Settings → Pages → Source: "GitHub Actions").
 
 ## Full documentation
 

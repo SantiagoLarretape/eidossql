@@ -504,8 +504,17 @@ Postgres-style integer division (§8).
 
 ### 18. Verification
 
-Two layers, both runnable any time:
+Four layers, shallowest to deepest:
 
+- `npm test` — **62 Vitest unit tests**, no database required, covering
+  what the differential test cannot see: the teaching-error catalog (each
+  classic mistake pinned to its message, hint, and source span), step
+  structure (phase order, kept/dropped marks, the Mattel ghost row, stable
+  row identities across ORDER BY, timeline source names and color
+  stability), value semantics (three-valued logic, interval decomposition,
+  NULL-aware grouping keys), CSV parsing and type inference, and golden
+  Postgres-semantics results (integer division, `NOT IN` with NULL,
+  peer-inclusive running totals, empty-input aggregates).
 - `npm run smoke` — 26 engine cases (foundations through capstones,
   including **every curated example**) printing step traces and results.
 - `npm run verify` — the **differential test**: creates a scratch local
@@ -517,6 +526,12 @@ Two layers, both runnable any time:
   window function classes and frames, set ops, correlated and uncorrelated
   subqueries, date/interval math, casts, integer division, and the three
   capstones. **Current status: 61/61 identical.**
+- **Continuous integration** (`.github/workflows/ci.yml`): every push runs
+  typecheck → oxlint → the unit suites → the full differential test against
+  a real `postgres:16` service container → the production build. The
+  differential oracle isn't mocked in CI — the pipeline boots an actual
+  PostgreSQL and diffs the engine against it. A second workflow
+  (`deploy.yml`) publishes the static build to GitHub Pages on main.
 
 The differential harness has already earned its keep — it caught two real
 engine bugs during development (aggregate-over-zero-rows returning no row
@@ -549,6 +564,8 @@ result view.
 npm run dev      # dev server + Postgres bridge  → http://localhost:5173
 npm run build    # static production build (dist/) — bridge not included
 npm run preview  # serve the build locally (bridge included)
+npm test         # 62 Vitest unit tests (no database needed)
+npm run lint     # oxlint
 npm run smoke    # engine smoke test
 npm run verify   # differential test vs local Postgres (needs psql/createdb)
 ```

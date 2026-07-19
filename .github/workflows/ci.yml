@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: eidossql
+
+jobs:
+  test:
+    name: Lint · unit tests · Postgres differential · build
+    runs-on: ubuntu-latest
+
+    # A real PostgreSQL runs alongside the job so the differential suite
+    # (61 queries diffed cell-by-cell between the engine and Postgres)
+    # executes on every push — not a mock, the actual database.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      PGUSER: postgres
+      PGPASSWORD: postgres
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: eidossql/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit -p tsconfig.app.json && npx tsc --noEmit -p tsconfig.node.json
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Ensure Postgres client tools
+        run: which psql createdb || (sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client)
+
+      - name: Differential test vs PostgreSQL
+        run: npm run verify
+
+      - name: Build
+        run: npm run build
