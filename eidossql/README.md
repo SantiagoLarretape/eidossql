@@ -122,11 +122,22 @@ Three layers, shallowest to deepest:
 
 ## Full documentation
 
-**[docs/MASTER-GUIDE.md](docs/MASTER-GUIDE.md)** is the complete map of the
-project — every user-facing feature, how each part of the engine works
-(value semantics, parser, step-emitting executor, join planner, subquery
-correlation), the Postgres bridge, the design system, the verification
-methodology, and the full list of supported SQL and known deviations.
+**[docs/MASTER-GUIDE.md](docs/MASTER-GUIDE.md)** — also available as a
+40-page formatted report, **[docs/MASTER-GUIDE.pdf](docs/MASTER-GUIDE.pdf)** —
+is the complete map of the project:
+
+- **Part I–II** — every user-facing feature, and how each part of the engine
+  works (value semantics, parser, step-emitting executor, join planner,
+  subquery correlation), plus the Postgres bridge and design system.
+- **Part III** — design decisions and trade-offs: for each major choice, the
+  alternatives considered, what was chosen, what it cost, and what I'd
+  revisit.
+- **Part IV** — complexity analysis of every hot path, the measured impact
+  of the hash-join rewrite, and the rationale behind each guard rail.
+- **Part V–VI** — testing methodology, the bugs differential testing caught,
+  known deviations from Postgres, and workflows.
+- **Appendices** — an interview Q&A, a glossary of the CS concepts involved,
+  annotated excerpts of the trickiest code, and project metrics.
 
 ## Project layout
 
