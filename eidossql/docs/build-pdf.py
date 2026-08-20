@@ -97,8 +97,8 @@ html = f"""<!doctype html><html><head><meta charset="utf-8">
   <div class="meta">
     An interactive SQL visualizer for DSO&nbsp;435 · Data Base Management Systems<br>
     Version 1.1 · July 2026<br>
-    ~5,500 lines of TypeScript · SQL engine written from scratch<br>
-    Verified against PostgreSQL: 61/61 differential queries identical
+    ~5,900 lines of TypeScript · SQL engine written from scratch<br>
+    Verified against PostgreSQL: 63/63 differential queries identical
   </div>
   <div class="epigraph">In ancient Greek, <b>εἶδος</b> is the form — the shape by which a thing
   is known. In modern Greek, a <b>type</b> or kind. EidosSQL makes the form of a query visible:

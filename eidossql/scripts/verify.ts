@@ -155,6 +155,8 @@ const CASES: Case[] = [
   { name: 'capstone union + cte + case', ds: parch, sql: `(select id, total_amt_usd as amount, case when total_amt_usd > 5000 then 'Big order' else 'Wrong' end as label from orders where total_amt_usd > 5000) union (with small_orders as (select id, total_amt_usd from orders where total_amt_usd < 500) select id, total_amt_usd, case when total_amt_usd < 500 then 'Small order' else 'Wrong' end as label from small_orders order by total_amt_usd desc);` },
   { name: 'capstone left join + having subquery', ds: parch, sql: `with acct_orders as (select account_id, count(*) as num_orders from orders group by account_id) select a.sales_rep_id, sum(ao.num_orders) as team_orders from accounts a left join acct_orders ao on ao.account_id = a.id group by a.sales_rep_id having sum(ao.num_orders) > (select avg(num_orders) from acct_orders);` },
   { name: 'capstone lag in cte', ds: parch, sql: `with order_history as (select account_id, occurred_at, total_amt_usd, lag(total_amt_usd, 1) over (partition by account_id order by occurred_at) as previous_amt from orders) select *, (total_amt_usd - previous_amt) as change from order_history where previous_amt is not null;` },
+  { name: 'standalone values', ds: parch, sql: "values (1, 'a'), (2, 'b'), (3, null);" },
+  { name: 'cte column list over values', ds: parch, sql: `with months(mnum, mname) as (values (1,'January'), (2,'February'), (3,'March')) select r.name, m.mname from region r join months m on m.mnum = r.id order by r.id;`, ordered: true },
 ];
 
 function main() {

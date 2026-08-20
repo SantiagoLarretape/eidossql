@@ -113,11 +113,26 @@ class Parser {
       const withTok = this.next();
       for (;;) {
         const { name, tok } = this.expectName('CTE name');
+        let columns: string[] | undefined;
+        if (this.isPunct('(')) {
+          // optional column list: WITH months(mnum, mname) AS (…)
+          this.next();
+          columns = [];
+          for (;;) {
+            columns.push(this.expectName('CTE column name').name);
+            if (this.isPunct(',')) {
+              this.next();
+              continue;
+            }
+            break;
+          }
+          this.expectPunct(')', 'to close the CTE column list');
+        }
         this.expectWord('AS', 'after the CTE name');
         this.expectPunct('(', 'to open the CTE definition');
         const sub = this.parseQueryFull();
         const close = this.expectPunct(')', 'to close the CTE definition');
-        ctes.push({ name, query: sub, start: tok.start, end: close.end });
+        ctes.push({ name, columns, query: sub, start: tok.start, end: close.end });
         if (this.isPunct(',')) {
           this.next();
           continue;
@@ -208,16 +223,48 @@ class Parser {
   }
 
   parseSetPrimary(): QueryBody {
-    if (this.isPunct('(') && (this.isWord('SELECT', 1) || this.isWord('WITH', 1) || this.isPunct('(', 1))) {
+    if (this.isPunct('(') && (this.isWord('SELECT', 1) || this.isWord('WITH', 1) || this.isWord('VALUES', 1) || this.isPunct('(', 1))) {
       this.next();
       const q = this.parseQueryFull();
       this.expectPunct(')', 'to close the parenthesized query');
       return q;
     }
+    if (this.isWord('VALUES')) return this.parseValues();
     if (this.isWord('SELECT')) return this.parseSelectCore();
     const t = this.peek();
     throw this.err(`Expected SELECT, found ${this.describe(t)}`, t,
-      'Every query (or set-operation branch) must start with SELECT, WITH, or an opening parenthesis.');
+      'Every query (or set-operation branch) must start with SELECT, WITH, VALUES, or an opening parenthesis.');
+  }
+
+  parseValues(): QueryBody {
+    const vTok = this.expectWord('VALUES');
+    const rows: Expr[][] = [];
+    for (;;) {
+      this.expectPunct('(', 'to open a VALUES row');
+      const row: Expr[] = [];
+      for (;;) {
+        row.push(this.parseExpr());
+        if (this.isPunct(',')) {
+          this.next();
+          continue;
+        }
+        break;
+      }
+      this.expectPunct(')', 'to close the VALUES row');
+      if (rows.length && row.length !== rows[0].length) {
+        throw this.err(
+          `Every VALUES row must have the same number of values (this one has ${row.length}, the first has ${rows[0].length})`,
+          this.toks[this.pos - 1],
+        );
+      }
+      rows.push(row);
+      if (this.isPunct(',')) {
+        this.next();
+        continue;
+      }
+      break;
+    }
+    return { kind: 'values', rows, start: vTok.start, end: this.toks[this.pos - 1].end };
   }
 
   // ---------- select core ----------

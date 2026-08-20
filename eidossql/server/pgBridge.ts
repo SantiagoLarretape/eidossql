@@ -16,10 +16,11 @@ import pg from 'pg';
 
 const { Client, types } = pg;
 
-// Return dates/timestamps as raw strings, numbers as numbers.
+// Return dates/timestamps/intervals as raw strings, numbers as numbers.
 types.setTypeParser(1082, (v: string) => v); // date
 types.setTypeParser(1114, (v: string) => v); // timestamp
 types.setTypeParser(1184, (v: string) => v); // timestamptz
+types.setTypeParser(1186, (v: string) => v); // interval (Postgres text form)
 types.setTypeParser(1700, (v: string) => parseFloat(v)); // numeric
 types.setTypeParser(20, (v: string) => parseInt(v, 10)); // int8
 types.setTypeParser(700, (v: string) => parseFloat(v)); // float4
@@ -111,6 +112,44 @@ async function snapshot(connRaw: string, limitRaw: number) {
   }
 }
 
+const MAX_VERIFY_ROWS = 10_000;
+
+/**
+ * Run one student query against the real database — used by the live
+ * verification badge to prove the in-browser engine agrees with Postgres.
+ * Same safety posture as snapshot(): read-only session, plus a statement
+ * timeout and a row cap.
+ */
+async function runQuery(connRaw: string, sql: string) {
+  const client = new Client({
+    connectionString: normalizeConn(connRaw),
+    connectionTimeoutMillis: 5000,
+  });
+  await client.connect();
+  try {
+    await client.query('SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY');
+    await client.query('SET statement_timeout = 8000');
+    const res = await client.query({ text: sql, rowMode: 'array' });
+    if (Array.isArray(res)) throw new Error('only a single statement can be verified');
+    const rows = (res.rows as unknown[][]).slice(0, MAX_VERIFY_ROWS).map((r) =>
+      r.map((v) =>
+        v === null || v === undefined
+          ? null
+          : typeof v === 'number' || typeof v === 'boolean'
+            ? v
+            : String(v),
+      ),
+    );
+    return {
+      columns: res.fields.map((f) => f.name),
+      rows,
+      truncated: res.rows.length > MAX_VERIFY_ROWS,
+    };
+  } finally {
+    await client.end();
+  }
+}
+
 function readBody(req: Connect.IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     let data = '';
@@ -125,11 +164,15 @@ function readBody(req: Connect.IncomingMessage): Promise<string> {
 
 function middleware(): Connect.NextHandleFunction {
   return async (req, res, next) => {
-    if (req.url !== '/api/pg/snapshot' || req.method !== 'POST') return next();
+    const isSnapshot = req.url === '/api/pg/snapshot';
+    const isQuery = req.url === '/api/pg/query';
+    if ((!isSnapshot && !isQuery) || req.method !== 'POST') return next();
     res.setHeader('Content-Type', 'application/json');
     try {
       const body = JSON.parse(await readBody(req));
-      const result = await snapshot(String(body.conn ?? ''), Number(body.limit));
+      const result = isSnapshot
+        ? await snapshot(String(body.conn ?? ''), Number(body.limit))
+        : await runQuery(String(body.conn ?? ''), String(body.sql ?? ''));
       res.statusCode = 200;
       res.end(JSON.stringify(result));
     } catch (err) {

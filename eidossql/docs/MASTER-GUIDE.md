@@ -34,7 +34,7 @@ erases.
 > grouped, and collapsed. To do that I had to write the SQL engine from
 > scratch — tokenizer, parser, and an evaluator that snapshots itself after
 > every clause — because off-the-shelf engines only hand you the final
-> answer. It's differential-tested against PostgreSQL: 61 queries run through
+> answer. It's differential-tested against PostgreSQL: 63 queries run through
 > both my engine and a real Postgres in CI, diffed cell by cell."
 
 Three things that pitch is engineered to do: name a **real user problem**
@@ -61,7 +61,7 @@ relation — and crucially, rows must keep a **stable identity** across
 snapshots so the UI can tell "this row survived" from "a different row is
 here now." No embeddable engine exposes that. So: write one.
 
-**What I built.** ~5,500 lines of TypeScript. A tokenizer and a
+**What I built.** ~5,900 lines of TypeScript. A tokenizer and a
 recursive-descent parser where every AST node carries a source span (that's
 what lets the editor highlight exactly the clause the current step belongs
 to), and an executor that evaluates the query for real while emitting a
@@ -69,7 +69,7 @@ snapshot per stage. CTEs, subqueries, and UNION branches recurse as nested
 step groups. On top: a React UI where framer-motion FLIP animations turn the
 row-identity system into visible motion.
 
-**How I know it's right.** A differential test: the same 61 queries run
+**How I know it's right.** A differential test: the same 63 queries run
 through my engine and a real PostgreSQL loaded with identical data, results
 diffed cell by cell. It found two bugs I'd never have caught by eye. It runs
 in CI against a `postgres:16` service container on every push, alongside 62
@@ -149,7 +149,7 @@ reads the CTE without re-reading the SQL. Unit tests now pin that behavior.
 
 **⑥ Errors as curriculum.**
 *Competency: product thinking in an unglamorous place.*
-64 error sites, 37 carrying a teaching hint. Using a SELECT alias in WHERE
+65 error sites, 38 carrying a teaching hint. Using a SELECT alias in WHERE
 doesn't say "column does not exist" — it says the alias exists but WHERE runs
 *before* SELECT names it, and suggests repeating the expression or wrapping
 the query. Errors carry exact source spans so the editor underlines the
@@ -260,7 +260,7 @@ steps *is* the explanation:
 | Rows sliding | ORDER BY reordering (FLIP animation — no row appears or disappears) |
 
 Steps display the first 100 rows (with an "… N more rows" footer); the final
-RESULT view shows up to 1,000. Computation always covers *all* loaded rows —
+RESULT view shows up to 2,500. Computation always covers *all* loaded rows —
 the caps are presentation only.
 
 ### 5. Databases
@@ -272,11 +272,22 @@ the caps are presentation only.
   **International** has a rep but no accounts, **South/North** have nothing.
 - **Connect your own Postgres** (Database → "➕ Connect your own
   Postgres…") — point the app at any database on your machine
-  (`postgres://localhost:5432/northwind`, or just `northwind`). Choose a
-  sample size from 100 rows up to **all rows** (50,000/table hard cap). If
-  any table is sampled, the schema panel labels it ("300 of 6,912 rows
-  (sample)") and a persistent amber banner warns that results on a sample
-  can differ from the full database. With "all rows," results are exact.
+  (`postgres://localhost:5432/northwind`, or just `northwind`). The default
+  is **all rows** (50,000/table hard cap), so results are exact; sampling
+  is the opt-in for huge tables. If any table is sampled, the schema panel
+  labels it ("300 of 6,912 rows (sample)") and a banner appears —
+  **query-aware**: after a run it checks which tables the query actually
+  touched (via the steps' source tags) and either warns about exactly those
+  sampled tables, or turns green — "this query only reads fully-loaded
+  tables; its results match the full database."
+- **Live verification** — on a Postgres dataset, every run is also sent to
+  the *real* database (read-only, 8 s timeout) and diffed against the
+  engine's result with the same canonicalization as the test harness. The
+  result step then shows **"✓ Verified — all N rows match your PostgreSQL
+  exactly"** — or an honest warning if they differ, or a quiet "skipped"
+  note when comparison would be meaningless (sampled tables in play, LIMIT
+  without ORDER BY, or a >2,500-row result). This turns the CI-time
+  differential guarantee into a per-query, per-student runtime guarantee.
 - **Load CSV files** (Database → "📄 Load CSV files…") — each file becomes
   a table named after the file; the first row supplies column names and
   types are inferred per column (integer, numeric, date, timestamp,
@@ -361,8 +372,8 @@ src/ui/*                 1,177   Editor, StepTable, Timeline, SchemaPanel,
                                  highlight.ts, examples.ts, App.tsx
 server/pgBridge.ts         161   local-Postgres bridge (Vite middleware)
 scripts/smoke.ts            62   engine smoke test (26 cases)
-scripts/verify.ts          222   engine-vs-Postgres differential test (61 cases)
-tests/*.test.ts            470   62 Vitest unit tests
+scripts/verify.ts          222   engine-vs-Postgres differential test (63 cases)
+tests/*.test.ts           ~620   74 Vitest unit tests (6 suites)
 src/styles.css           1,090   design tokens, layout, print & present modes
 ```
 
@@ -412,7 +423,10 @@ parseMultiplicative → parseUnary → parsePostfix → parsePrimary`). Coverage
 - WHERE · GROUP BY (expressions, ordinals, select aliases) · HAVING
 - ORDER BY (expressions, ordinals, output names, ASC/DESC, NULLS
   FIRST/LAST) · LIMIT/OFFSET
-- WITH (multiple CTEs, visible to later CTEs and the body)
+- WITH (multiple CTEs, visible to later CTEs and the body; optional column
+  lists — `WITH months(mnum, mname) AS (…)`)
+- `VALUES (…), (…)` inline tables (standalone, in set-op branches, or as a
+  CTE body — Postgres-style `column1, column2, …` naming)
 - UNION [ALL] / INTERSECT / EXCEPT with correct precedence (INTERSECT binds
   tighter) and parenthesized branches that may contain their own WITH/ORDER
 - Full expression grammar: OR→AND→NOT→comparisons (=, <>, <, <=, >, >=,
@@ -570,7 +584,7 @@ become **equi-join keys**, everything else stays a per-pair *residual* test.
 
 ### 13. The teaching-error catalog
 
-Errors are the app's second curriculum: **64 error sites, 37 with a teaching
+Errors are the app's second curriculum: **65 error sites, 38 with a teaching
 hint.** The notable ones:
 
 | Mistake | What EidosSQL says |
@@ -597,9 +611,12 @@ Browsers can't speak the Postgres wire protocol, so "connect your own
 database" is a 161-line middleware living *inside the student's own Vite
 dev server* (`configureServer`/`configurePreviewServer`):
 
-- One endpoint: `POST /api/pg/snapshot {conn, limit}` → database name +
+- Two endpoints: `POST /api/pg/snapshot {conn, limit}` → database name +
   every public-schema base table (max 40) with columns, total row count,
-  and up to `limit` rows (hard cap 50,000; `limit ≤ 0` means "all").
+  and up to `limit` rows (hard cap 50,000; `limit ≤ 0` means "all"); and
+  `POST /api/pg/query {conn, sql}` → runs one student query against the
+  real database for the live-verification badge (read-only session, 8 s
+  statement timeout, 10,000-row cap).
 - **Safety**: the session is forced `READ ONLY`; only catalog queries and
   `SELECT … LIMIT` are ever issued; identifiers are quote-escaped.
 - Type mapping: Postgres `data_type` → the engine's
@@ -623,7 +640,7 @@ dev server* (`configureServer`/`configurePreviewServer`):
   share one implementation.
 - **StepTable** renders `motion.tr` rows keyed by stable row id inside
   `AnimatePresence`: exits fade, survivors FLIP into place, entries fade in.
-  Above 150 rows (the 1,000-row result view) it switches to static `<tr>`s —
+  Above 150 rows (the 2,500-row result view) it switches to static `<tr>`s —
   animating a thousand rows would burn CPU for zero pedagogy. Numeric cells
   right-align with `tabular-nums`.
 - **Timeline** chips auto-scroll the active chip into view; nesting depth
@@ -701,7 +718,7 @@ re-running truncated variants of the query and *inferring* intermediate
 states — fragile and often wrong (you can't derive pre-GROUP BY rows from a
 grouped result).
 
-**Cost.** ~3,800 lines of engine, and a permanent correctness burden: every
+**Cost.** ~3,900 lines of engine, and a permanent correctness burden: every
 SQL rule I get subtly wrong is a wrong lesson. That cost is what justifies
 the differential test — the two are a package deal.
 
@@ -949,7 +966,7 @@ is why the differential test passes on both paths.
 | Join result rows | 500k | catches a wrong join key producing a cartesian explosion |
 | Bridge rows/table | 50,000 | keeps a snapshot in memory and the transfer quick |
 | Displayed rows/step | 100 | the animation is the lesson; more rows teach nothing |
-| Displayed rows/result | 1,000 | the result is data, not animation — but still bounded |
+| Displayed rows/result | 2,500 | the result is data, not animation — but still bounded |
 | Animated rows | ≤150 | above this, FLIP animation costs CPU for no pedagogy |
 
 Design principle behind all of them: **fail with an explanation, never with
@@ -965,7 +982,7 @@ Four layers, shallowest to deepest.
 
 #### 18.1 The layers
 
-- `npm test` — **62 Vitest unit tests**, no database required, covering what
+- `npm test` — **74 Vitest unit tests**, no database required, covering what
   the differential test structurally cannot see:
 
   | Suite | Tests | Covers |
@@ -973,27 +990,34 @@ Four layers, shallowest to deepest.
   | `errors.test.ts` | 18 | every classic mistake pinned to message, hint, and source span |
   | `steps.test.ts` | 13 | phase order, kept/dropped marks, the Mattel ghost row, id stability across ORDER BY, timeline source names and color stability |
   | `csv.test.ts` | 11 | quoting, CRLF, embedded newlines, type inference, ragged rows, name collisions |
+  | `liveverify.test.ts` | 9 | live-verification skip rules and the engine-vs-Postgres result comparison |
   | `values.test.ts` | 10 | three-valued logic, interval decomposition, NULL-aware grouping keys |
-  | `engine.test.ts` | 10 | golden Postgres semantics that need no DB (integer division, `NOT IN` with NULL, peer-inclusive running totals, empty-input aggregates) |
+  | `engine.test.ts` | 13 | golden Postgres semantics that need no DB (integer division, `NOT IN` with NULL, peer-inclusive running totals, empty-input aggregates, VALUES + CTE column lists) |
 
 - `npm run smoke` — 26 engine cases (foundations through capstones,
   including **every curated example**) printing step traces and results. A
   broken example fails CI.
 - `npm run verify` — the **differential test**: creates a scratch Postgres
   database (`eidossql_verify`), loads the exact embedded dataset, runs a
-  **61-query battery** through both the engine and Postgres, and diffs
+  **63-query battery** through both the engine and Postgres, and diffs
   results cell-by-cell (NULL-tokenized, float-tolerant, multiset comparison
   unless the query has a determining ORDER BY), then drops the database.
   Coverage: every join type on both planner paths, grouping edge cases, all
   window function classes and frames, set ops, correlated and uncorrelated
   subqueries, date/interval math, casts, integer division, and the three
-  capstones. **Current status: 61/61 identical.**
+  capstones. **Current status: 63/63 identical.**
 - **Continuous integration** (`.github/workflows/ci.yml`): every push runs
   typecheck → oxlint → unit suites → the full differential test against a
   real `postgres:16` **service container** → production build. The oracle
   isn't mocked in CI: the pipeline boots an actual PostgreSQL and diffs the
   engine against it. A second workflow (`deploy.yml`) publishes the static
   build to GitHub Pages on main.
+- **Live verification at runtime** (§5): when a student is connected to
+  Postgres with full tables, every query they run is *also* executed by the
+  real database and diffed — so the guarantee isn't just "the test suite
+  passed once," it's re-proven on the student's own machine, for their own
+  query, every time. Where comparison would mislead (sampled data, LIMIT
+  without ORDER BY), it declines with a stated reason instead.
 
 #### 18.2 War stories — three bugs, three lessons
 
@@ -1064,7 +1088,7 @@ the scope was *chosen*, not accidental.
 npm run dev      # dev server + Postgres bridge  → http://localhost:5173
 npm run build    # static production build (dist/) — bridge not included
 npm run preview  # serve the build locally (bridge included)
-npm test         # 62 Vitest unit tests (no database needed)
+npm test         # 74 Vitest unit tests (no database needed)
 npm run lint     # oxlint
 npm run smoke    # engine smoke test (26 cases)
 npm run verify   # differential test vs local Postgres (needs psql/createdb)
@@ -1178,9 +1202,9 @@ The known inefficiency is explicit `ROWS` frames, recomputed per row rather
 than via a sliding accumulator. See Part IV.
 
 **A-9. How did you test something with this much semantic surface?**
-Differential testing as the primary oracle — 61 queries through both my
+Differential testing as the primary oracle — 63 queries through both my
 engine and a real Postgres, diffed cell by cell, running in CI against a
-service container. Plus 62 unit tests aimed at what that oracle can't see:
+service container. Plus 74 unit tests aimed at what that oracle can't see:
 error messages, step structure, and value-level semantics. §III.7, §18.
 
 **A-10. Tell me about a bug your tests caught.**
@@ -1247,7 +1271,7 @@ mode for the projector, a print stylesheet for handouts, and error messages
 written the way a TA would explain them.
 
 **A-20. What does the CI actually run?**
-Typecheck (both tsconfigs), oxlint, 62 unit tests, the 61-query differential
+Typecheck (both tsconfigs), oxlint, 74 unit tests, the 63-query differential
 suite against a `postgres:16` service container, and a production build —
 on every push. A separate workflow deploys the static build to Pages.
 
@@ -1457,15 +1481,15 @@ SQL doesn't guarantee would produce false failures.
 | Metric | Value |
 |---|---|
 | Total TypeScript (src + server) | ~5,460 lines |
-| SQL engine | 3,759 lines (executor 2,011 · parser 878 · functions 319 · ast 215 · tokens 148 · values 109 · steps 72) |
+| SQL engine | 3,865 lines (executor ~2,100 · parser 878 · functions 319 · ast 215 · tokens 148 · values 109 · steps 72) |
 | React UI | 1,177 lines · CSS 1,090 lines |
 | Runtime dependencies | 4 declared; the **browser bundle** uses 3 (react, react-dom, framer-motion). `pg` is used only by the dev-server bridge. The **SQL engine has zero** — it's pure TypeScript |
 | SQL keywords tokenized | 60 |
 | Scalar functions | 35, plus 5 aggregates and 8 window functions |
-| Error sites / with teaching hints | 64 / 37 |
+| Error sites / with teaching hints | 65 / 38 |
 | Curated examples | 21, across 6 teaching groups |
-| Unit tests | 62 (5 suites) |
-| Differential queries vs. Postgres | 61 — **61/61 identical** |
+| Unit tests | 74 (6 suites) |
+| Differential queries vs. Postgres | 63 — **63/63 identical** |
 | Smoke cases | 26 (includes every example) |
 | CI stages | typecheck → lint → unit → differential (postgres:16 service) → build |
 | Data sources | 3 (embedded, live Postgres, CSV) normalized to one `Dataset` shape |

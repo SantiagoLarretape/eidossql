@@ -6,18 +6,19 @@ import { fetchPostgresDataset } from '../data/remote';
 import type { Dataset } from '../data/datasets';
 
 interface ConnectPanelProps {
-  onConnected: (ds: Dataset) => void;
+  onConnected: (ds: Dataset, conn: string) => void;
   onClose: () => void;
 }
 
-const LS_KEY = 'eidossql.pg';
+// v2: default changed from a 300-row sample to "all rows" (exact results)
+const LS_KEY = 'eidossql.pg.v2';
 
 function savedPrefs(): { conn: string; limit: number } {
   try {
     const raw = localStorage.getItem(LS_KEY);
     if (raw) return JSON.parse(raw);
   } catch { /* ignore */ }
-  return { conn: 'postgres://localhost:5432/parch', limit: 300 };
+  return { conn: 'postgres://localhost:5432/parch', limit: 0 };
 }
 
 export function ConnectPanel({ onConnected, onClose }: ConnectPanelProps) {
@@ -37,7 +38,7 @@ export function ConnectPanel({ onConnected, onClose }: ConnectPanelProps) {
         localStorage.setItem(LS_KEY, JSON.stringify({ conn, limit }));
       } catch { /* ignore */ }
       setOmitted(tablesOmitted);
-      onConnected(dataset);
+      onConnected(dataset, conn);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -72,17 +73,18 @@ export function ConnectPanel({ onConnected, onClose }: ConnectPanelProps) {
         <label className="connect-field">
           <span>Rows per table</span>
           <select value={limit} onChange={(e) => setLimit(Number(e.target.value))}>
-            <option value={100}>first 100 (fastest, most readable)</option>
-            <option value={300}>first 300 (recommended for teaching)</option>
-            <option value={1000}>first 1,000</option>
-            <option value={10000}>first 10,000</option>
-            <option value={0}>all rows (up to 50,000 per table)</option>
+            <option value={0}>all rows — exact results (recommended; up to 50,000/table)</option>
+            <option value={10000}>first 10,000 (sample)</option>
+            <option value={1000}>first 1,000 (sample)</option>
+            <option value={300}>first 300 (sample)</option>
+            <option value={100}>first 100 (sample)</option>
           </select>
         </label>
         <p className="connect-hint">
-          Steps always display the first 100 rows, but queries <em>compute</em> over
-          everything loaded — with "all rows", results match the real database.
-          Sampled tables are labeled, since results on a sample can differ.
+          With "all rows", every query's result matches the real database — and
+          EidosSQL double-checks each run against your PostgreSQL (a ✓ appears on
+          the result). Samples load faster for huge tables, but results on a
+          sample can differ, so sampled tables are labeled and verification is off.
         </p>
         {error && <div className="error-box" role="alert"><div className="error-title">{error}</div></div>}
         {omitted > 0 && <div className="connect-hint">Note: only the first 40 tables were loaded ({omitted} omitted).</div>}

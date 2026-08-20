@@ -68,5 +68,7 @@ export interface Step {
 /** Cap on rows actually rendered per step (engine always computes all rows). */
 export const MAX_VIZ_ROWS = 100;
 
-/** The final-result step shows more rows than intermediate (animated) steps. */
-export const MAX_RESULT_ROWS = 1000;
+/** The final-result step shows more rows than intermediate (animated) steps —
+ *  sized so a full orderdetails-scale homework result (≈2,200 rows) still
+ *  displays and live-verifies. */
+export const MAX_RESULT_ROWS = 2500;

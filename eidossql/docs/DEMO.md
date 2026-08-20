@@ -136,12 +136,12 @@ this from a surprise into a collaboration.
 
 | Question | Answer |
 |---|---|
-| "Is it accurate?" | Differential-tested against real PostgreSQL: 61 queries diffed cell-by-cell, 61/61 identical — re-verified automatically on every change. |
+| "Is it accurate?" | Differential-tested against real PostgreSQL: 63 queries diffed cell-by-cell, 63/63 identical — re-verified automatically on every change. |
 | "What SQL does it cover?" | Everything in the first half of the course: all joins, grouping, HAVING, subqueries (incl. correlated), CTEs, set operations, window functions with frames, CASE, date math. SELECT only — no INSERT/UPDATE/DDL. |
-| "Can it handle student mistakes?" | That's half the product — 37 curated error explanations written the way a TA would say them. |
+| "Can it handle student mistakes?" | That's half the product — 38 curated error explanations written the way a TA would say them. |
 | "How do students get it?" | Hosted link (once published) or `git clone` + `npm run dev` for the own-database features. CSVs work everywhere. |
 | "Can I use my own examples?" | Yes — type any query, connect any local Postgres, or hand out CSVs. |
-| "What did you build it with?" | TypeScript/React; the SQL engine is written from scratch (~3,800 lines) because existing engines can't expose intermediate states. |
+| "What did you build it with?" | TypeScript/React; the SQL engine is written from scratch (~3,900 lines) because existing engines can't expose intermediate states. |
 
 ---
 

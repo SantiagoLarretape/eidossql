@@ -779,6 +779,35 @@ th.col-new {
   border-radius: 8px;
   padding: 6px 12px;
 }
+.sample-banner.sample-ok {
+  background: color-mix(in srgb, var(--good) 9%, transparent);
+  border-color: color-mix(in srgb, var(--good) 30%, transparent);
+}
+
+/* live verification badge (result step, Postgres datasets) */
+.live-badge {
+  display: inline-block;
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  padding: 5px 11px;
+  border-radius: 8px;
+  border: 1px solid var(--ring);
+  color: var(--ink-2);
+}
+.live-match {
+  background: color-mix(in srgb, var(--good) 10%, transparent);
+  border-color: color-mix(in srgb, var(--good) 35%, transparent);
+  color: var(--good-text);
+  font-weight: 600;
+}
+.live-differ {
+  background: color-mix(in srgb, var(--bad) 10%, transparent);
+  border-color: color-mix(in srgb, var(--bad) 35%, transparent);
+}
+.live-checking,
+.live-skipped {
+  color: var(--muted);
+}
 
 .connect-overlay {
   position: fixed;

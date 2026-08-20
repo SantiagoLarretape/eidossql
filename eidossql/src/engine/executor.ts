@@ -128,7 +128,9 @@ class Executor {
 
   run(q: Query): RunResult {
     const rel = this.execQuery(q, this.rootEnv, [], true);
-    return { steps: this.steps, result: this.plainViz(rel) };
+    // full result-view cap, not the per-step display cap — live verification
+    // compares against this table, so it must carry every row it can
+    return { steps: this.steps, result: this.plainViz(rel, MAX_RESULT_ROWS) };
   }
 
   // ---------- step helpers ----------
@@ -228,7 +230,20 @@ class Executor {
   execQuery(q: Query, env: Env, path: string[], outermost = false): Relation {
     const env2: Env = { tables: new Map(env.tables) };
     for (const cte of q.ctes) {
-      const rel = this.execQuery(cte.query, env2, [...path, `WITH ${cte.name}`]);
+      let rel = this.execQuery(cte.query, env2, [...path, `WITH ${cte.name}`]);
+      if (cte.columns) {
+        if (cte.columns.length !== rel.cols.length) {
+          throw new SqlError(
+            `CTE "${cte.name}" names ${cte.columns.length} column${plural(cte.columns.length)} but its query returns ${rel.cols.length}`,
+            cte.start, cte.end,
+            'The column list renames the CTE\'s output one-for-one, so the counts must match.',
+          );
+        }
+        rel = {
+          ...rel,
+          cols: rel.cols.map((c, i) => ({ ...c, name: cte.columns![i] })),
+        };
+      }
       env2.tables.set(cte.name.toLowerCase(), { rel, display: cte.name });
       this.pushStep({
         phase: 'cte',
@@ -248,6 +263,9 @@ class Executor {
     } else if (q.body.kind === 'setop') {
       rel = this.execSetOp(q.body, env2, path);
       rel = this.applyTailOnOutput(rel, q, path);
+    } else if (q.body.kind === 'values') {
+      rel = this.execValues(q.body, env2, path);
+      rel = this.applyTailOnOutput(rel, q, path);
     } else {
       rel = this.execQuery(q.body, env2, path);
       rel = this.applyTailOnOutput(rel, q, path);
@@ -259,12 +277,42 @@ class Executor {
         chip: 'RESULT',
         title: `Final result — ${rel.rows.length.toLocaleString()} row${plural(rel.rows.length)}`,
         desc: `This is the table the database returns for the query.`,
+        insight: !q.orderBy && rel.rows.length > 1
+          ? 'Row order without ORDER BY is not guaranteed — another tool (like DBeaver) may show these same rows in a different order.'
+          : undefined,
         span: { start: q.start, end: q.end },
         path,
         sources: this.tag(rel.sources),
         table: this.plainViz(rel, MAX_RESULT_ROWS),
       });
     }
+    return rel;
+  }
+
+  /** VALUES (…), (…) — build an inline relation of literal rows. */
+  execValues(v: Extract<QueryBody, { kind: 'values' }>, env: Env, path: string[]): Relation {
+    const width = v.rows[0]?.length ?? 0;
+    const ctx: Ctx = { cols: [], row: { id: 'v', vals: [] }, env, clause: 'VALUES', path };
+    const rows: RelRow[] = v.rows.map((exprs, i) => ({
+      id: `v:${i}`,
+      vals: exprs.map((e) => this.evalExpr(e, ctx)),
+    }));
+    // Postgres names VALUES columns column1, column2, …
+    const cols: RelCol[] = Array.from({ length: width }, (_, i) => ({
+      id: freshColId(`column${i + 1}`),
+      name: `column${i + 1}`,
+      isInt: v.rows.every((r) => this.isIntExpr(r[i], [])),
+    }));
+    const rel: Relation = { cols, rows, sources: [] };
+    this.pushStep({
+      phase: 'from',
+      chip: 'VALUES',
+      title: `VALUES — ${rows.length} inline row${plural(rows.length)}`,
+      desc: `This little table is written directly in the query — ${rows.length} row${plural(rows.length)} of literal values, no database table involved. Postgres names the columns column1, column2, … until something renames them.`,
+      span: { start: v.start, end: v.end },
+      path,
+      table: this.plainViz(rel),
+    });
     return rel;
   }
 
@@ -1054,6 +1102,7 @@ class Executor {
   execBody(body: QueryBody, env: Env, path: string[]): Relation {
     if (body.kind === 'select') return this.execSelect(body, env, path);
     if (body.kind === 'setop') return this.execSetOp(body, env, path);
+    if (body.kind === 'values') return this.execValues(body, env, path);
     return this.execQuery(body, env, path);
   }
 

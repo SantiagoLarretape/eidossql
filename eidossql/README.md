@@ -59,14 +59,18 @@ inside the dev server introspects the schema and loads a row sample into the
 browser; your connection string never leaves your computer, and the bridge
 only reads (its session is forced read-only).
 
-You choose how much to load — from a 100-row sample up to **all rows**
-(50,000 per table max). Equality joins use a hash-join path, so
+The default loads **all rows** (50,000 per table max; smaller samples are
+the opt-in for huge tables). Equality joins use a hash-join path, so
 full-size course databases (thousands of rows) compute instantly and
-**results match the real database exactly**; intermediate steps display the
-first 100 rows, and the final result view shows up to 1,000. If you do load
-a sample, EidosSQL labels sampled tables and shows a persistent banner,
-because results on a sample can differ — that caveat is itself a good
-classroom conversation. A work budget in the engine catches runaway queries
+**results match the real database exactly** — and EidosSQL proves it:
+every query you run is also executed by your real PostgreSQL (read-only)
+and diffed, stamping the result with "✓ Verified — matches your PostgreSQL"
+or an honest warning. Intermediate steps display the
+first 100 rows, and the final result view shows up to 2,500. If you do load
+a sample, EidosSQL labels sampled tables and shows a **query-aware** banner:
+it warns only when the query actually reads a sampled table, and turns green
+when the query's tables are fully loaded (results exact). The caveat is
+itself a good classroom conversation. A work budget in the engine catches runaway queries
 (e.g. a cross join of huge tables) with a teaching hint instead of a frozen
 tab.
 
@@ -101,7 +105,7 @@ differences, and correlated subqueries.
 
 Three layers, shallowest to deepest:
 
-- `npm test` — 62 Vitest unit tests that run anywhere, no database needed:
+- `npm test` — 74 Vitest unit tests that run anywhere, no database needed:
   the **teaching-error catalog** (every classic student mistake pinned to
   its message and hint), **step structure** (phase order, kept/dropped row
   marks, stable row identities, timeline source-coloring), value semantics
@@ -109,11 +113,11 @@ Three layers, shallowest to deepest:
   inference, and golden Postgres-semantics results (integer division,
   `NOT IN` with NULL, peer-inclusive running totals, …).
 - `npm run verify` — the **differential test**: loads the embedded dataset
-  into a scratch local Postgres database, runs a 61-query battery (all join
+  into a scratch local Postgres database, runs a 63-query battery (all join
   types on both planner paths, grouping edge cases, all window function
   classes, set ops, correlated subqueries, date/interval math, capstones)
   through both the engine and Postgres, and diffs results cell-by-cell.
-  Current status: **61/61 identical**.
+  Current status: **63/63 identical**.
 - **CI** (`.github/workflows/ci.yml`) runs all of it on every push:
   typecheck → oxlint → unit tests → the full differential suite against a
   real `postgres:16` service container → production build. A second

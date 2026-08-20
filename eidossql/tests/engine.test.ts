@@ -72,4 +72,22 @@ describe('Postgres semantics without Postgres', () => {
                          case when 1 = 2 then 'a' else 'b' end as y;`))
       .toEqual([[null, 'b']]);
   });
+
+  it('VALUES builds an inline table with Postgres column names', () => {
+    const { result } = runQuery("values (1, 'a'), (2, 'b');", parch);
+    expect(result.columns.map((c) => c.label)).toEqual(['column1', 'column2']);
+    expect(result.rows.map((r) => r.cells)).toEqual([[1, 'a'], [2, 'b']]);
+  });
+
+  it('CTE column lists rename the output (the months(mnum, mname) pattern)', () => {
+    expect(cells(`with months(mnum, mname) as (
+                    values (1, 'January'), (2, 'February'), (3, 'March'))
+                  select mname from months where mnum >= 2 order by mnum;`))
+      .toEqual([['February'], ['March']]);
+  });
+
+  it('CTE column list with the wrong arity is a teaching error', () => {
+    expect(() => runQuery("with m(a, b, c) as (values (1, 2)) select * from m;", parch))
+      .toThrow(/names 3 columns but its query returns 2/);
+  });
 });

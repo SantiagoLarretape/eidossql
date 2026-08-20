@@ -77,10 +77,16 @@ export function StepTable({ table }: { table: VizTable }) {
                 <motion.tr
                   key={r.id}
                   layout="position"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.28, ease: 'easeOut' }}
+                  transition={{
+                    // rows *travel* on reorder/removal — slow enough to read
+                    // as movement, not a teleport-and-recolor
+                    layout: { duration: 0.55, ease: [0.4, 0, 0.2, 1] },
+                    opacity: { duration: 0.35, ease: 'easeOut' },
+                    y: { duration: 0.4, ease: 'easeOut' },
+                  }}
                   className={rowClass(r)}
                   title={rowTitle(r)}
                 >

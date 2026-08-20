@@ -195,10 +195,18 @@ export interface SetOp extends Span {
   opSpan: Span;
 }
 
-export type QueryBody = SelectCore | SetOp | Query; // Query = parenthesized subselect
+/** VALUES (…), (…) — an inline table of literal rows. */
+export interface ValuesClause extends Span {
+  kind: 'values';
+  rows: Expr[][];
+}
+
+export type QueryBody = SelectCore | SetOp | Query | ValuesClause; // Query = parenthesized subselect
 
 export interface Cte extends Span {
   name: string;
+  /** optional column list: WITH months(mnum, mname) AS (…) */
+  columns?: string[];
   query: Query;
 }
 

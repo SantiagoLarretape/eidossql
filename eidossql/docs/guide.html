@@ -1,0 +1,1762 @@
+<!doctype html><html><head><meta charset="utf-8">
+<title>EidosSQL — Master Guide</title><style>
+@page { size: letter; margin: 22mm 20mm 24mm 20mm; }
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; }
+body {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 10.5pt; line-height: 1.55; color: #1a1a19; margin: 0;
+}
+h1, h2, h3, h4, .cover * { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+
+/* ---- cover ---- */
+.cover { page-break-after: always; padding-top: 38mm; }
+.cover .mark { color: #1c5cab; font-size: 30pt; font-weight: 700; letter-spacing: -0.5pt; }
+.cover h1 { font-size: 30pt; margin: 0 0 4mm; letter-spacing: -0.5pt; }
+.cover .greek { font-family: Georgia, serif; font-style: italic; color: #1c5cab; font-size: 14pt; }
+.cover .sub { font-size: 13pt; color: #52514e; margin: 2mm 0 14mm; }
+.cover .rule { height: 3pt; background: #1c5cab; width: 40mm; margin: 10mm 0; }
+.cover .meta { color: #52514e; font-size: 10.5pt; line-height: 1.8; }
+.cover .epigraph { margin-top: 20mm; max-width: 120mm; color: #52514e; font-size: 10.5pt;
+  border-left: 3px solid #1c5cab; padding-left: 6mm; font-style: italic; }
+
+/* ---- toc ---- */
+.toc-page { page-break-after: always; }
+.toc-page h2 { font-size: 16pt; border-bottom: 2px solid #1c5cab; padding-bottom: 2mm;
+  page-break-before: auto; margin-top: 0; }
+/* python-markdown already emits <div class="toc">, so style it directly —
+   wrapping it in another .toc would nest the column rule and double the columns */
+.toc { font-size: 9.5pt; column-count: 2; column-gap: 12mm; }
+.toc ul { list-style: none; padding-left: 0; margin: 0; }
+.toc > ul > li { margin: 2mm 0 1mm; font-weight: 700; break-inside: avoid; }
+.toc > ul > li > ul { padding-left: 4mm; font-weight: 400; }
+.toc > ul > li > ul > li { margin: 0.8mm 0; }
+.toc a { color: #1a1a19; text-decoration: none; }
+
+/* ---- content ---- */
+h2 { page-break-before: always; font-size: 17pt; color: #0b0b0b;
+  border-bottom: 2.5px solid #1c5cab; padding-bottom: 2mm; margin: 0 0 6mm; }
+h3 { font-size: 12.5pt; margin: 8mm 0 3mm; color: #0b0b0b; page-break-after: avoid; }
+h4 { font-size: 11pt; margin: 5mm 0 2mm; page-break-after: avoid; }
+p { margin: 0 0 3mm; }
+li { margin: 0 0 1.6mm; }
+strong { color: #0b0b0b; }
+blockquote { border-left: 3px solid #1c5cab; margin: 4mm 0; padding: 1mm 0 1mm 5mm;
+  color: #52514e; font-style: italic; }
+code { font-family: Menlo, Consolas, monospace; font-size: 8.6pt;
+  background: #f1f0ec; padding: 0.5pt 3pt; border-radius: 3px;
+  overflow-wrap: break-word; }
+pre { background: #f6f5f1; border: 1px solid #e1e0d9; border-radius: 6px;
+  padding: 3.5mm 4mm; page-break-inside: avoid; }
+pre code { background: none; padding: 0; font-size: 8.1pt; line-height: 1.45;
+  white-space: pre-wrap; word-break: break-word; }
+table { border-collapse: collapse; width: 100%; margin: 3mm 0 5mm; font-size: 9.3pt;
+  page-break-inside: avoid; }
+th { text-align: left; font-family: 'Helvetica Neue', sans-serif; font-size: 9pt;
+  border-bottom: 1.5px solid #898781; padding: 1.6mm 3mm 1.2mm 0; }
+td { border-bottom: 0.75px solid #e1e0d9; padding: 1.6mm 3mm 1.6mm 0; vertical-align: top; }
+hr { display: none; }
+a { color: #1c5cab; }
+</style></head><body>
+<div class="cover">
+  <div class="mark">⧉</div>
+  <h1>EidosSQL</h1>
+  <div class="greek">εἶδος&ensp;·&ensp;the form, the thing seen</div>
+  <div class="sub">Master Guide — every feature, how it was built,<br>and why it was built that way</div>
+  <div class="rule"></div>
+  <div class="meta">
+    An interactive SQL visualizer for DSO&nbsp;435 · Data Base Management Systems<br>
+    Version 1.1 · July 2026<br>
+    ~5,900 lines of TypeScript · SQL engine written from scratch<br>
+    Verified against PostgreSQL: 63/63 differential queries identical
+  </div>
+  <div class="epigraph">In ancient Greek, <b>εἶδος</b> is the form — the shape by which a thing
+  is known. In modern Greek, a <b>type</b> or kind. EidosSQL makes the form of a query visible:
+  one step, one type, one table at a time.</div>
+</div>
+<div class="toc-page"><h2>Contents</h2><div class="toc">
+<ul>
+<li><a href="#how-to-use-this-guide">How to use this guide</a></li>
+<li><a href="#part-0-interview-toolkit">Part 0 — Interview toolkit</a><ul>
+<li><a href="#01-the-30-second-pitch">0.1 The 30-second pitch</a></li>
+<li><a href="#02-the-three-minute-walkthrough">0.2 The three-minute walkthrough</a></li>
+<li><a href="#03-six-stories-worth-telling">0.3 Six stories worth telling</a></li>
+<li><a href="#04-question-section-map">0.4 Question → section map</a></li>
+</ul>
+</li>
+<li><a href="#part-i-product-tour">Part I — Product tour</a><ul>
+<li><a href="#1-layout">1. Layout</a></li>
+<li><a href="#2-the-editor">2. The editor</a></li>
+<li><a href="#3-the-step-player">3. The step player</a></li>
+<li><a href="#4-the-animated-table-reading-the-visuals">4. The animated table — reading the visuals</a></li>
+<li><a href="#5-databases">5. Databases</a></li>
+<li><a href="#5a-presentation-mode-themes-and-printing">5a. Presentation mode, themes, and printing</a></li>
+<li><a href="#6-examples">6. Examples</a></li>
+</ul>
+</li>
+<li><a href="#part-ii-how-its-built">Part II — How it's built</a><ul>
+<li><a href="#7-architecture-at-a-glance">7. Architecture at a glance</a></li>
+<li><a href="#8-value-semantics-valuests">8. Value semantics (values.ts)</a></li>
+<li><a href="#9-tokenizer-and-parser">9. Tokenizer and parser</a></li>
+<li><a href="#10-the-executor-evaluation-as-storytelling">10. The executor — evaluation as storytelling</a></li>
+<li><a href="#11-joins-planner-hash-path-and-honesty-about-non-matches">11. Joins: planner, hash path, and honesty about non-matches</a></li>
+<li><a href="#12-subqueries-ctes-and-correlation">12. Subqueries, CTEs, and correlation</a></li>
+<li><a href="#13-the-teaching-error-catalog">13. The teaching-error catalog</a></li>
+<li><a href="#14-the-postgres-bridge-serverpgbridgets">14. The Postgres bridge (server/pgBridge.ts)</a></li>
+<li><a href="#15-ui-implementation-notes">15. UI implementation notes</a></li>
+<li><a href="#16-design-system">16. Design system</a></li>
+<li><a href="#17-datasets">17. Datasets</a></li>
+</ul>
+</li>
+<li><a href="#part-iii-design-decisions-trade-offs">Part III — Design decisions &amp; trade-offs</a><ul>
+<li><a href="#iii1-build-the-sql-engine-or-embed-one">III.1 Build the SQL engine, or embed one?</a></li>
+<li><a href="#iii2-snapshot-per-clause-vs-replaying-prefixes">III.2 Snapshot-per-clause vs. replaying prefixes</a></li>
+<li><a href="#iii3-stable-row-identities-vs-positional-diffing">III.3 Stable row identities vs. positional diffing</a></li>
+<li><a href="#iii4-sampling-then-hash-joins">III.4 Sampling, then hash joins</a></li>
+<li><a href="#iii5-runtime-tripwire-vs-static-analysis-for-correlation">III.5 Runtime tripwire vs. static analysis for correlation</a></li>
+<li><a href="#iii6-iso-strings-for-dates-instead-of-date-objects">III.6 ISO strings for dates instead of Date objects</a></li>
+<li><a href="#iii7-differential-testing-vs-hand-written-expectations">III.7 Differential testing vs. hand-written expectations</a></li>
+<li><a href="#iii8-dev-server-bridge-vs-a-hosted-backend">III.8 Dev-server bridge vs. a hosted backend</a></li>
+<li><a href="#iii9-a-type-pass-just-for-integer-division">III.9 A type pass just for integer division</a></li>
+<li><a href="#iii10-immutable-step-instead-of-incremental-ui-state">III.10 Immutable Step[] instead of incremental UI state</a></li>
+</ul>
+</li>
+<li><a href="#part-iv-complexity-performance">Part IV — Complexity &amp; performance</a><ul>
+<li><a href="#iv1-hot-paths">IV.1 Hot paths</a></li>
+<li><a href="#iv2-the-join-rewrite-measured">IV.2 The join rewrite, measured</a></li>
+<li><a href="#iv3-guard-rails-and-why-each-number">IV.3 Guard rails (and why each number)</a></li>
+</ul>
+</li>
+<li><a href="#part-v-trust-testing-ci">Part V — Trust: testing &amp; CI</a><ul>
+<li><a href="#18-verification">18. Verification</a></li>
+</ul>
+</li>
+<li><a href="#part-vi-limits-workflows-and-reflection">Part VI — Limits, workflows, and reflection</a><ul>
+<li><a href="#19-known-limitations-deviations-from-postgres">19. Known limitations &amp; deviations from Postgres</a></li>
+<li><a href="#20-workflows">20. Workflows</a></li>
+<li><a href="#21-demo-script-5-minutes-for-a-person">21. Demo script (5 minutes, for a person)</a></li>
+<li><a href="#22-what-id-do-differently-and-what-i-learned">22. What I'd do differently, and what I learned</a></li>
+</ul>
+</li>
+<li><a href="#appendix-a-interview-qa">Appendix A — Interview Q&amp;A</a></li>
+<li><a href="#appendix-b-concept-glossary">Appendix B — Concept glossary</a></li>
+<li><a href="#appendix-c-crown-jewel-code">Appendix C — Crown-jewel code</a><ul>
+<li><a href="#c-1-the-join-planners-side-classification-executorts">C-1. The join planner's side classification (executor.ts)</a></li>
+<li><a href="#c-2-correlation-detection-by-tripwire-executorts">C-2. Correlation detection by tripwire (executor.ts)</a></li>
+<li><a href="#c-3-stable-row-identity-through-a-join-executorts">C-3. Stable row identity through a join (executor.ts)</a></li>
+<li><a href="#c-4-the-differential-comparison-scriptsverifyts">C-4. The differential comparison (scripts/verify.ts)</a></li>
+</ul>
+</li>
+<li><a href="#appendix-d-project-metrics">Appendix D — Project metrics</a></li>
+</ul>
+</div>
+</div>
+<h3 id="how-to-use-this-guide">How to use this guide</h3>
+<p>Three reading paths, depending on why you opened it:</p>
+<table>
+<thead>
+<tr>
+<th>If you're…</th>
+<th>Read</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Preparing for an interview</strong></td>
+<td>Part 0 (pitch + stories), then Part III (trade-offs), Part IV (complexity), Appendix A (Q&amp;A), Appendix B (vocabulary)</td>
+</tr>
+<tr>
+<td><strong>Returning to the code after months away</strong></td>
+<td>Part II (architecture, file map), Appendix C (the crown-jewel code), Part VI (workflows)</td>
+</tr>
+<tr>
+<td><strong>Explaining the project to someone</strong></td>
+<td>Part I (product tour), then §21's demo script</td>
+</tr>
+</tbody>
+</table>
+<p>Parts I–II describe <em>what exists</em>. Part III is the one that matters most in
+an interview: it records the decisions, the alternatives that were rejected,
+and what each choice cost — the reasoning that a finished codebase silently
+erases.</p>
+<hr />
+<h2 id="part-0-interview-toolkit">Part 0 — Interview toolkit</h2>
+<h3 id="01-the-30-second-pitch">0.1 The 30-second pitch</h3>
+<blockquote>
+<p>"EidosSQL is a teaching tool that shows what a SQL query does <em>while</em> it
+runs. You type a query and it replays it in the database's logical order —
+FROM, then JOIN, then WHERE, then GROUP BY, and only then SELECT — as a
+sequence of animated table states, so you watch rows get matched, filtered,
+grouped, and collapsed. To do that I had to write the SQL engine from
+scratch — tokenizer, parser, and an evaluator that snapshots itself after
+every clause — because off-the-shelf engines only hand you the final
+answer. It's differential-tested against PostgreSQL: 63 queries run through
+both my engine and a real Postgres in CI, diffed cell by cell."</p>
+</blockquote>
+<p>Three things that pitch is engineered to do: name a <strong>real user problem</strong>
+(the professor drawing tables on a whiteboard during office hours), state a
+<strong>non-obvious technical constraint</strong> (why an existing engine can't be used),
+and end on <strong>evidence</strong> (differential testing) rather than a claim.</p>
+<h3 id="02-the-three-minute-walkthrough">0.2 The three-minute walkthrough</h3>
+<p><strong>Problem.</strong> In DSO 435, students hit a wall at joins and grouping. During
+office hours the professor kept re-drawing the same thing on a whiteboard:
+here's the table, here's what the join does to it, here's what's left after
+the WHERE. It's the same explanation every time, it doesn't scale past one
+person, and it disappears when the whiteboard is erased.</p>
+<p><strong>Why existing tools don't solve it.</strong> A database gives you the final result.
+Query plans (<code>EXPLAIN</code>) show the physical strategy, not the data. Neither
+shows the <em>intermediate data</em> — which is exactly the thing students can't
+picture.</p>
+<p><strong>Constraint that shaped everything.</strong> To animate intermediate states, the
+evaluator has to pause after every logical clause and snapshot the working
+relation — and crucially, rows must keep a <strong>stable identity</strong> across
+snapshots so the UI can tell "this row survived" from "a different row is
+here now." No embeddable engine exposes that. So: write one.</p>
+<p><strong>What I built.</strong> ~5,900 lines of TypeScript. A tokenizer and a
+recursive-descent parser where every AST node carries a source span (that's
+what lets the editor highlight exactly the clause the current step belongs
+to), and an executor that evaluates the query for real while emitting a
+snapshot per stage. CTEs, subqueries, and UNION branches recurse as nested
+step groups. On top: a React UI where framer-motion FLIP animations turn the
+row-identity system into visible motion.</p>
+<p><strong>How I know it's right.</strong> A differential test: the same 63 queries run
+through my engine and a real PostgreSQL loaded with identical data, results
+diffed cell by cell. It found two bugs I'd never have caught by eye. It runs
+in CI against a <code>postgres:16</code> service container on every push, alongside 62
+unit tests that cover what the differential test structurally cannot see —
+the error messages and the <em>steps themselves</em>.</p>
+<p><strong>Where it went.</strong> Built as a TA tool for the professor who hired me; runs
+against the class database, any local Postgres, or uploaded CSVs.</p>
+<h3 id="03-six-stories-worth-telling">0.3 Six stories worth telling</h3>
+<p>Each is STAR-shaped (situation → task → action → result) and each demonstrates
+a different competency. Pick to match the question.</p>
+<p><strong>① The sampling limitation, and fixing the real cause.</strong>
+<em>Competency: diagnosing the actual bottleneck instead of the symptom.</em>
+Connect-your-own-database initially sampled 300 rows per table, and I told
+myself that was a pedagogical choice — nobody learns from 7,000 animated
+rows. When the user pushed back ("there's really no way to work on a whole
+table like DBeaver does?"), I looked again and admitted the honest answer:
+sampling was compensating for an O(n×m) nested-loop join. Real databases
+don't scan; they hash. I added a join planner that flattens the ON clause
+into conjuncts, classifies each <code>=</code> by which side its columns come from, and
+uses clean splits as hash keys — leaving anything else as a residual per-pair
+test, with the nested loop as fallback for pure inequality joins. Full
+Parch &amp; Posey (352 accounts × 6,912 orders) went from <em>refused</em> to a complete
+8-step visualization in <strong>38 ms</strong>, results identical to <code>psql</code>. The lesson I'd
+state out loud: a limitation you've rationalized is still a limitation.</p>
+<p><strong>② The differential test that caught what review couldn't.</strong>
+<em>Competency: choosing a strong oracle.</em>
+Hand-writing expected values for SQL is both laborious and circular — you
+tend to encode the same misunderstanding into the test that's in the code.
+So instead of asserting values, I asserted <em>agreement</em>: load identical data
+into a scratch Postgres, run the same query through both, diff cell by cell
+(NULL-tokenized, float-tolerant, multiset comparison unless an ORDER BY makes
+order meaningful). It immediately caught two real bugs (§18.2) — one of them
+a SQL rule I simply didn't know. This is the single most reusable idea in the
+project: <strong>when a reference implementation exists, test against it, not
+against your own expectations.</strong></p>
+<p><strong>③ Correlation detection without static analysis.</strong>
+<em>Competency: finding a simpler mechanism than the obvious one.</em>
+A correlated subquery (one referencing the outer row) must re-run per row;
+an uncorrelated one should be evaluated once and cached. The textbook
+approach is a static pass over the AST resolving every identifier against
+enclosing scopes — a lot of machinery, duplicated with the resolver I already
+had. Instead I let the existing name resolution answer the question at
+runtime: push the enclosing row context onto an outer-scope stack with a
+boolean tripwire; if column resolution ever falls through to that outer
+frame, the flag trips. Correlated ⇒ don't cache, re-run per row. Uncorrelated
+⇒ cache. The flag also drives the user-facing narration ("this subquery
+depends on the outer row, so it re-runs for every one"), so one mechanism
+serves both correctness and pedagogy. ~15 lines instead of a resolver pass.</p>
+<p><strong>④ Making the invisible visible (the row-identity system).</strong>
+<em>Competency: designing a data model to serve a UX requirement.</em>
+The animation isn't decoration — it's the whole explanation. For the UI to
+show a row <em>moving</em> rather than disappearing and reappearing, the engine must
+guarantee identity across snapshots. Base rows are <code>alias:table:i</code>, joined
+rows compose as <code>left⋈right</code>, NULL-extended rows as <code>left⋈∅</code>, group rows as
+<code>g:&lt;key&gt;</code>. React keys off those ids, framer-motion FLIPs the layout
+difference, and the engine never contains a line of animation code. Clean
+separation: the engine promises identity; the UI renders motion.</p>
+<p><strong>⑤ Timeline chips as a second information channel.</strong>
+<em>Competency: hearing the real need behind a feature request.</em>
+The request was "shade the step buttons by table." The underlying need was
+that in a query with CTEs and subqueries, students lose track of <em>which table
+each step is even about</em>. So relations now carry provenance — the tables,
+CTEs, and subquery aliases they derive from — propagated through the whole
+pipeline (FROM sets it, JOIN concatenates, GROUP BY carries, set-ops merge).
+Steps tag their sources with stable color slots; a join chip renders
+half-and-half in its two sides' colors. The payoff shows up on the capstone
+query: the HAVING subquery's chip wears the CTE's color, so you can <em>see</em> it
+reads the CTE without re-reading the SQL. Unit tests now pin that behavior.</p>
+<p><strong>⑥ Errors as curriculum.</strong>
+<em>Competency: product thinking in an unglamorous place.</em>
+65 error sites, 38 carrying a teaching hint. Using a SELECT alias in WHERE
+doesn't say "column does not exist" — it says the alias exists but WHERE runs
+<em>before</em> SELECT names it, and suggests repeating the expression or wrapping
+the query. Errors carry exact source spans so the editor underlines the
+offending token. These are the app's second curriculum, and they're the part
+most likely to rot silently, so 18 unit tests pin each message, hint, and
+span.</p>
+<h3 id="04-question-section-map">0.4 Question → section map</h3>
+<table>
+<thead>
+<tr>
+<th>If they ask…</th>
+<th>Go to</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"Walk me through the project"</td>
+<td>§0.2</td>
+</tr>
+<tr>
+<td>"What was the hardest part?"</td>
+<td>§0.3 ① or ③; §11 (join planner)</td>
+</tr>
+<tr>
+<td>"Why not use an existing library?"</td>
+<td>§III.1</td>
+</tr>
+<tr>
+<td>"How did you test it?"</td>
+<td>§0.3 ②, §18, Appendix A-9</td>
+</tr>
+<tr>
+<td>"What's the time complexity?"</td>
+<td>Part IV</td>
+</tr>
+<tr>
+<td>"Tell me about a bug you found"</td>
+<td>§18.2 (three war stories)</td>
+</tr>
+<tr>
+<td>"What would you do differently?"</td>
+<td>§III (every "revisit" line), §22</td>
+</tr>
+<tr>
+<td>"How does it scale?"</td>
+<td>§IV.2, §19 (ceilings)</td>
+</tr>
+<tr>
+<td>"Tell me about a design trade-off"</td>
+<td>Part III — pick any</td>
+</tr>
+<tr>
+<td>"How do you handle X in the browser?"</td>
+<td>§14 (bridge), §IV.3 (work budget)</td>
+</tr>
+<tr>
+<td>"What did you learn?"</td>
+<td>§22</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="part-i-product-tour">Part I — Product tour</h2>
+<h3 id="1-layout">1. Layout</h3>
+<p>A single-page app with a fixed top bar (brand, <strong>Database</strong> picker,
+<strong>Examples</strong> picker, theme and presentation toggles) and two panes:</p>
+<ul>
+<li><strong>Left pane</strong> — SQL editor, ▶ Visualize button (also ⌘/Ctrl+Enter), error
+  panel, and a collapsible schema reference for the active database.</li>
+<li><strong>Stage</strong> (right) — the step player: step header, animated table, playback
+  controls, and the step timeline.</li>
+</ul>
+<p>Below ~920 px the panes stack vertically (usable on a tablet; desktop is the
+primary target). Light and dark themes are both first-class.</p>
+<h3 id="2-the-editor">2. The editor</h3>
+<ul>
+<li><strong>Syntax highlighting</strong> — keywords, strings, numbers, functions, comments,
+  identifiers each get a token color (text-contrast-safe in both themes).</li>
+<li><strong>Clause spotlight</strong> — while stepping through a visualization, the exact
+  SQL span responsible for the current step is highlighted and auto-scrolled
+  into view. This is the thread that ties "what the query says" to "what the
+  database is doing."</li>
+<li><strong>Error underline</strong> — parse/runtime errors wavy-underline the exact
+  offending span; the panel below shows the message with a line number and,
+  for classic student mistakes, a 💡 teaching hint (see §13).</li>
+<li>Tab inserts spaces; ⌘/Ctrl+Enter runs. If you edit after running, an
+  "edited — run again to update" note appears and the stale highlight is
+  suppressed.</li>
+</ul>
+<h3 id="3-the-step-player">3. The step player</h3>
+<p>Pressing <strong>Visualize</strong> replays the query in the database's <em>logical</em> clause
+order — not the order you wrote it:</p>
+<p>FROM → JOIN(s) → WHERE → GROUP BY → collapse → HAVING → window functions →
+SELECT → DISTINCT → set operations → ORDER BY → LIMIT/OFFSET → RESULT</p>
+<p>Each step shows:</p>
+<ul>
+<li><strong>Path badges</strong> — nesting context (<code>WITH acct_orders</code>, <code>UNION — branch 2</code>,
+  <code>Subquery in HAVING</code>), so CTEs, subqueries, and set-op branches read as
+  stories-within-the-story.</li>
+<li><strong>Title</strong> — the clause, verbatim (<code>WHERE total &gt; 500</code>).</li>
+<li><strong>Description</strong> — plain English with <em>real row counts</em> ("14 of 59 rows
+  pass; 45 are removed").</li>
+<li><strong>💡 Insight</strong> — an optional teaching callout (why WHERE can't see
+  aliases; what LEFT JOIN promises; what LIMIT without ORDER BY doesn't).</li>
+<li><strong>The table</strong> — the animated state of the data at that moment.</li>
+</ul>
+<p>Controls: ← / → keys, Prev/Next buttons, Play with 0.5×–2× speed, clickable
+timeline chips (indented <code>›</code> for nested steps), and a step counter. Row
+counts in each description tick up in a quick count-up animation (disabled
+for reduced-motion users), pulling the eye to the step's payload.</p>
+<p><strong>Timeline chips are color-coded by source.</strong> Every chip is tinted by the
+table(s), CTE(s), or subqueries its step is working on — assigned stable
+colors in order of first appearance and listed in a legend above the
+timeline. A JOIN chip is shaded <strong>half-and-half</strong> with its two sides'
+colors; steps inside a CTE wear that CTE's ingredients' colors; the "CTE
+ready" chip introduces the CTE's own color, which then reappears wherever
+the main query uses it — including inside a HAVING subquery that reads it.
+The goal: students can glance at the chip row and know <em>which table each
+clause is about</em> without re-reading the query, precisely when CTEs and
+subqueries make that hardest. A Greek-key (meander) rule underlines the
+timeline — one of exactly two Greek identity touches in the UI (the other
+is the wordmark's column-capital "E").</p>
+<h3 id="4-the-animated-table-reading-the-visuals">4. The animated table — reading the visuals</h3>
+<p>Rows keep a <strong>stable identity</strong> across steps, so the animation between two
+steps <em>is</em> the explanation:</p>
+<table>
+<thead>
+<tr>
+<th>Visual</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>✓ green row</td>
+<td>passed this step's test (WHERE/HAVING/LIMIT keep)</td>
+</tr>
+<tr>
+<td>✕ red row, dimmed</td>
+<td>failed; it fades out on the next step</td>
+</tr>
+<tr>
+<td>+ blue row</td>
+<td>appeared at this step (NULL-filled outer-join row, group row)</td>
+</tr>
+<tr>
+<td>Colored left edge + wash</td>
+<td>group / partition / join-provenance membership (8-color validated palette)</td>
+</tr>
+<tr>
+<td>Blue-underlined column</td>
+<td>column computed at this step (aggregate, window value, expression)</td>
+</tr>
+<tr>
+<td>Gray pill on a row</td>
+<td>per-row note ("no match — removed by INNER JOIN", "duplicate removed by UNION")</td>
+</tr>
+<tr>
+<td><em>NULL</em> in italics</td>
+<td>a real SQL NULL, styled distinctly from text</td>
+</tr>
+<tr>
+<td>Rows sliding</td>
+<td>ORDER BY reordering (FLIP animation — no row appears or disappears)</td>
+</tr>
+</tbody>
+</table>
+<p>Steps display the first 100 rows (with an "… N more rows" footer); the final
+RESULT view shows up to 2,500. Computation always covers <em>all</em> loaded rows —
+the caps are presentation only.</p>
+<h3 id="5-databases">5. Databases</h3>
+<ul>
+<li><strong>Embedded: Parch &amp; Posey</strong> — the class teaching database, trimmed to a
+  referentially-intact 12-account slice (30 orders, 32 web events, all 7
+  regions, 10 reps) so every row fits on screen. The trim deliberately keeps
+  teaching edge cases: <strong>Mattel</strong> has no orders (LEFT JOIN lessons),
+  <strong>International</strong> has a rep but no accounts, <strong>South/North</strong> have nothing.</li>
+<li><strong>Connect your own Postgres</strong> (Database → "➕ Connect your own
+  Postgres…") — point the app at any database on your machine
+  (<code>postgres://localhost:5432/northwind</code>, or just <code>northwind</code>). The default
+  is <strong>all rows</strong> (50,000/table hard cap), so results are exact; sampling
+  is the opt-in for huge tables. If any table is sampled, the schema panel
+  labels it ("300 of 6,912 rows (sample)") and a banner appears —
+  <strong>query-aware</strong>: after a run it checks which tables the query actually
+  touched (via the steps' source tags) and either warns about exactly those
+  sampled tables, or turns green — "this query only reads fully-loaded
+  tables; its results match the full database."</li>
+<li><strong>Live verification</strong> — on a Postgres dataset, every run is also sent to
+  the <em>real</em> database (read-only, 8 s timeout) and diffed against the
+  engine's result with the same canonicalization as the test harness. The
+  result step then shows <strong>"✓ Verified — all N rows match your PostgreSQL
+  exactly"</strong> — or an honest warning if they differ, or a quiet "skipped"
+  note when comparison would be meaningless (sampled tables in play, LIMIT
+  without ORDER BY, or a &gt;2,500-row result). This turns the CI-time
+  differential guarantee into a per-query, per-student runtime guarantee.</li>
+<li><strong>Load CSV files</strong> (Database → "📄 Load CSV files…") — each file becomes
+  a table named after the file; the first row supplies column names and
+  types are inferred per column (integer, numeric, date, timestamp,
+  boolean, text; blank cells become NULL). Everything parses in the
+  browser — nothing is uploaded anywhere. This lets an instructor hand out
+  any dataset as plain CSVs with zero database setup.</li>
+</ul>
+<h3 id="5a-presentation-mode-themes-and-printing">5a. Presentation mode, themes, and printing</h3>
+<ul>
+<li><strong>🎬 Present</strong> (top bar, Esc to exit) is the projector view: the editor
+  pane disappears, a read-only syntax-highlighted copy of the query docks
+  above the stage — keeping the clause spotlight visible — and type sizes
+  step up across the board.</li>
+<li><strong>☀️/🌙 theme toggle</strong> — the manual choice persists and overrides the OS
+  setting (projectors want light mode regardless of the presenter's laptop).</li>
+<li><strong>Printing</strong> any step produces a clean handout: light-forced colors, the
+  full query with highlighting, the step narration, and the table laid out
+  for paper with the app chrome stripped — homework material for free.</li>
+</ul>
+<h3 id="6-examples">6. Examples</h3>
+<p>21 curated queries in the Examples menu, ordered like the semester:</p>
+<ol>
+<li><strong>Foundations</strong> — SELECT, WHERE, ORDER BY + LIMIT, CASE</li>
+<li><strong>Joins</strong> — JOIN, chained joins, LEFT JOIN, LEFT JOIN + IS NULL</li>
+<li><strong>Aggregation</strong> — GROUP BY, HAVING</li>
+<li><strong>Subqueries &amp; CTEs</strong> — IN, scalar subquery, CTE, UNION</li>
+<li><strong>Window functions</strong> — running total, RANK per region, LAG, NTILE</li>
+<li><strong>Putting it together</strong> — three capstones at end-of-course difficulty:
+   UNION + CTE + CASE · LEFT JOIN + HAVING-with-subquery · LAG inside a CTE</li>
+</ol>
+<p>Selecting an example loads the query, switches to the right database, and
+runs it immediately. Every example is exercised by the smoke test, so a
+broken example fails CI.</p>
+<hr />
+<h2 id="part-ii-how-its-built">Part II — How it's built</h2>
+<h3 id="7-architecture-at-a-glance">7. Architecture at a glance</h3>
+<pre><code>┌───────────────────────────  browser  ───────────────────────────┐
+│  React UI (src/ui, src/App.tsx)                                 │
+│    editor · step player · animated table · timeline · dialogs   │
+│                │ SQL text + Dataset                             │
+│                ▼                                                │
+│  SQL engine (src/engine) — pure TypeScript, no dependencies     │
+│    tokens.ts → parser.ts → executor.ts (+ values, functions)    │
+│    output: Step[] — one visual snapshot per logical clause      │
+└───────────────┬─────────────────────────────────────────────────┘
+                │ POST /api/pg/snapshot  (local dev server only)
+                ▼
+  server/pgBridge.ts — Vite middleware → node-postgres → your DB
+</code></pre>
+<p>Three data sources (embedded dataset, live Postgres snapshot, uploaded CSVs)
+all normalize to one <code>Dataset</code> shape, so the engine has exactly one input
+format and never knows where the data came from.</p>
+<p>The engine is written from scratch (no sql.js, no parser library) for one
+reason: <strong>off-the-shelf engines only give you the final answer.</strong> To animate
+intermediate states the evaluator itself must pause after every logical
+clause, snapshot the working relation, and keep row identities stable. That
+requirement shaped everything below — see §III.1 for the full trade-off.</p>
+<p>File map (line counts as of v1.1):</p>
+<pre><code>src/engine/tokens.ts       148   tokenizer + SqlError (positions, hints)
+src/engine/ast.ts          215   AST types; every node carries a source span
+src/engine/parser.ts       878   recursive-descent parser
+src/engine/values.ts       109   value semantics: NULL logic, dates, intervals
+src/engine/functions.ts    319   35 scalar functions + aggregates
+src/engine/executor.ts   2,011   the evaluator/step-emitter (the heart)
+src/engine/steps.ts         72   Step/VizTable model consumed by the UI
+src/data/datasets.ts       152   embedded Parch &amp; Posey slice
+src/data/remote.ts          53   client for the Postgres bridge
+src/data/csv.ts            149   CSV parser + type inference → Dataset
+src/ui/*                 1,177   Editor, StepTable, Timeline, SchemaPanel,
+                                 ConnectPanel, CsvPanel, SqlView, AnimatedDesc,
+                                 highlight.ts, examples.ts, App.tsx
+server/pgBridge.ts         161   local-Postgres bridge (Vite middleware)
+scripts/smoke.ts            62   engine smoke test (26 cases)
+scripts/verify.ts          222   engine-vs-Postgres differential test (63 cases)
+tests/*.test.ts           ~620   74 Vitest unit tests (6 suites)
+src/styles.css           1,090   design tokens, layout, print &amp; present modes
+</code></pre>
+<h3 id="8-value-semantics-valuests">8. Value semantics (<code>values.ts</code>)</h3>
+<ul>
+<li>Values are plain JS: <code>number | string | boolean | null</code>, plus an
+  <code>Interval</code> object for timestamp arithmetic.</li>
+<li><strong>Dates/timestamps are ISO strings</strong> (<code>2016-12-24 05:53:13</code>). Deliberate:
+  they display exactly as Postgres prints them, compare correctly as plain
+  strings (ISO-8601 is lexicographically ordered), and never drift through
+  timezones. Date math parses them as UTC on demand. (Trade-off: §III.6.)</li>
+<li><strong>Three-valued logic</strong> is enforced at the comparison layer:
+  <code>compareValues</code> returns <code>null</code> when either side is NULL; <code>truthy()</code>
+  implements "NULL and false both reject the row"; AND/OR/NOT propagate
+  unknowns Postgres-style. This is why <code>NULL = NULL</code> correctly filters rows
+  out and <code>x IN (…, NULL)</code> returns NULL rather than false — the mechanism
+  behind the classic <code>NOT IN</code> trap.</li>
+<li><strong>Interval decomposition</strong> mirrors Postgres: a timestamp difference is
+  days + hh:mm:ss, so <code>EXTRACT(hour FROM (a - b))</code> gives the <em>hour
+  component</em>, not total hours — matching real query results.</li>
+<li><code>groupKey(values)</code> builds the canonical string key used everywhere
+  equality-with-NULLs matters (GROUP BY, DISTINCT, set ops, hash joins, IN
+  sets) — with SQL's twist that NULLs <em>are</em> equal for grouping. One function,
+  five call sites, no divergence.</li>
+<li><strong>Integer division</strong>: Postgres computes <code>7 / 2 = 3</code>. The engine reproduces
+  this via a lightweight static type pass — dataset columns carry an <code>isInt</code>
+  flag, and <code>isIntExpr()</code> propagates int-ness through literals, arithmetic,
+  <code>count/sum/min/max</code>, CASE, and casts (memoized per AST node). Division
+  truncates only when both operands are integer-typed. A classic gotcha the
+  course teaches, faithfully reproduced.</li>
+</ul>
+<h3 id="9-tokenizer-and-parser">9. Tokenizer and parser</h3>
+<p><code>tokens.ts</code> produces tokens with byte-exact source positions (60 keywords,
+numbers, strings with <code>''</code> escapes, quoted identifiers, operators, both
+comment styles). The same tokenizer drives editor syntax highlighting, so
+the editor and engine can never disagree about what a token is.</p>
+<p><code>parser.ts</code> is a hand-written <strong>recursive-descent</strong> parser — one function per
+grammar production, precedence encoded in the call chain
+(<code>parseOr → parseAnd → parseNot → parseComparison → parseAdditive →
+parseMultiplicative → parseUnary → parsePostfix → parsePrimary</code>). Coverage:</p>
+<ul>
+<li>SELECT [DISTINCT] with expressions, aliases (<code>AS</code> or bare), <code>*</code> / <code>t.*</code></li>
+<li>FROM with table aliases, subqueries-as-tables, and every join type
+  (INNER/LEFT/RIGHT/FULL [OUTER]/CROSS, comma joins, ON and USING)</li>
+<li>WHERE · GROUP BY (expressions, ordinals, select aliases) · HAVING</li>
+<li>ORDER BY (expressions, ordinals, output names, ASC/DESC, NULLS
+  FIRST/LAST) · LIMIT/OFFSET</li>
+<li>WITH (multiple CTEs, visible to later CTEs and the body; optional column
+  lists — <code>WITH months(mnum, mname) AS (…)</code>)</li>
+<li><code>VALUES (…), (…)</code> inline tables (standalone, in set-op branches, or as a
+  CTE body — Postgres-style <code>column1, column2, …</code> naming)</li>
+<li>UNION [ALL] / INTERSECT / EXCEPT with correct precedence (INTERSECT binds
+  tighter) and parenthesized branches that may contain their own WITH/ORDER</li>
+<li>Full expression grammar: OR→AND→NOT→comparisons (=, &lt;&gt;, &lt;, &lt;=, &gt;, &gt;=,
+  IS [NOT] NULL/TRUE/FALSE, [NOT] IN list/subquery, BETWEEN, LIKE/ILIKE)
+  →additive (+ − ||)→multiplicative→unary→<code>::type</code> casts→primary</li>
+<li>CASE (searched and operand forms), CAST(x AS type), EXTRACT(field FROM x),
+  INTERVAL '…', DATE/TIMESTAMP literals, EXISTS(…), scalar subqueries,
+  function calls with DISTINCT args and OVER (PARTITION BY … ORDER BY …
+  [ROWS frames])</li>
+</ul>
+<p>Two design choices matter most:</p>
+<ol>
+<li><strong>Every AST node records <code>{start, end}</code>.</strong> That single invariant powers
+   three separate features: the editor's clause spotlight, error underlines,
+   and each step's <code>span</code>. Cheap to maintain while parsing, impossible to
+   retrofit.</li>
+<li><strong>Errors are written for students.</strong> The parser distinguishes "syntax
+   error" from "the mistake a student actually makes": a LEFT JOIN missing
+   its ON explains cross-join blowup; a FROM-subquery without an alias
+   explains <em>why</em> SQL needs the name; keywords used as names suggest double
+   quotes.</li>
+</ol>
+<h3 id="10-the-executor-evaluation-as-storytelling">10. The executor — evaluation as storytelling</h3>
+<p><code>executor.ts</code> evaluates the query for real while recording a <code>Step</code> after
+every logical stage. The <code>Step</code> model (<code>steps.ts</code>):</p>
+<pre><code class="language-ts">{ phase, chip, title, desc, insight?, span?, path[], sources[],  // narration
+  table: { columns[], rows[], truncated? } }                     // the state
+</code></pre>
+<p><strong>Stable row identity</strong> is the core trick. Base rows are <code>alias:table:i</code>;
+a joined row is <code>left⋈right</code>; a NULL-extended row is <code>left⋈∅</code>; a group row
+is <code>g:&lt;key&gt;</code>; set-op branches are prefixed <code>a:</code>/<code>b:</code>. Because ids persist
+across steps, the UI's FLIP layout animation renders "this row moved /
+survived / vanished" without the engine knowing anything about animation.</p>
+<p><strong>Source tracking</strong> works the same way for tables: every relation carries
+<code>sources</code> — the display names of the base tables, CTEs, and subquery
+aliases it derives from. FROM sets it, JOIN concatenates both sides,
+grouping/projection/set-ops carry or merge it, and each emitted step tags
+its sources with a stable color slot (assigned in order of first
+appearance). The timeline renders those tags as chip tints — one wash, a
+half-and-half join split, or stripes — plus the legend.</p>
+<p>Pipeline details, in order:</p>
+<ul>
+<li><strong>FROM</strong> resolves against the environment (dataset tables + CTEs),
+  instantiates fresh column ids with the alias as <code>source</code> (that's the small
+  gray label over each column), and errors on duplicate aliases with a
+  self-join hint. Subqueries in FROM run first as a nested step group.</li>
+<li><strong>JOIN</strong> — see §11.</li>
+<li><strong>WHERE</strong> evaluates per row (aggregate/window usage rejected with hints),
+  snapshots every row as kept/dropped, then keeps the survivors.</li>
+<li><strong>GROUP BY</strong> resolves keys three ways (expression, ordinal, select alias —
+  matching Postgres), builds groups in order of first appearance, and emits
+  <em>two</em> steps: rows recolored &amp; sorted into contiguous groups, then the
+  collapse into one row per group. The grouped relation's columns are the
+  keys plus every aggregate the rest of the query needs — collected up
+  front by scanning SELECT, HAVING, and ORDER BY (deduped by normalized
+  text; labeled by alias when a select item matches). Aggregates over an
+  empty input with no GROUP BY still produce one row (<code>count(*)</code> = 0) — a
+  real SQL quirk the differential test caught (§18.2).</li>
+<li><strong>Group-context evaluation</strong>: after collapse, expressions are evaluated
+  against a group context where (a) anything textually matching a GROUP BY
+  key returns the key value, (b) a column reference resolving to a key
+  column works under any alias spelling, (c) aggregate calls compute (and
+  cache) over the group's member rows, and (d) any other bare column throws
+  the canonical teaching error ("must appear in GROUP BY or be used in an
+  aggregate — SQL no longer knows <em>which</em> row's value to show").</li>
+<li><strong>HAVING</strong> is WHERE for group rows — same kept/dropped visual, plus the
+  insight that explains the WHERE/HAVING division of labor.</li>
+<li><strong>Window functions</strong> run after HAVING, over whatever rows remain
+  (including grouped rows — <code>rank() over (order by sum(x))</code> works).
+  Implementation: partition by <code>PARTITION BY</code> values → sort within
+  partitions (stable, NULLS-aware) → compute per function. Supported:
+  <code>row_number, rank, dense_rank, ntile, lag, lead, first_value, last_value</code>
+  and any aggregate with OVER. Frames follow Postgres defaults — with an
+  ORDER BY the frame is "start through current row <em>including peers</em>,"
+  which is why running totals tie on equal keys — plus explicit
+  <code>ROWS BETWEEN n PRECEDING AND CURRENT ROW</code> frames for moving averages.
+  The step shows partitions striped in color and the computed columns
+  appearing; afterwards the relation keeps the window order (like Postgres
+  output, and it makes LAG values visually traceable).</li>
+<li><strong>SELECT</strong> happens <em>late</em>, as in real SQL: stars expand (excluding
+  internal window columns), carried columns keep their ids (so the UI shows
+  untouched columns persisting), computed columns get fresh ids and a "new"
+  highlight. Labels: alias &gt; column name &gt; shortened expression text.</li>
+<li><strong>DISTINCT</strong> dedupes whole output rows via <code>groupKey</code>, marking duplicates
+  before removing them.</li>
+<li><strong>Set operations</strong> run each branch as its own step group, enforce equal
+  column counts (with a teaching message), stack rows with branch coloring,
+  and show duplicate elimination (UNION), membership testing (INTERSECT),
+  or subtraction (EXCEPT) row by row.</li>
+<li><strong>ORDER BY</strong> resolves each key as output ordinal → unique output name →
+  arbitrary expression evaluated against the <em>pre-projection</em> row (kept
+  alongside by row id) — mirroring Postgres's ability to sort by
+  non-selected columns, including its restriction that with DISTINCT the
+  sort keys must be in the select list (enforced, with the explanation).
+  Sorting is stable, multi-key, DESC-aware, with Postgres NULL defaults.</li>
+<li><strong>LIMIT/OFFSET</strong> marks the cut rows before dropping them, and warns when
+  there's no ORDER BY ("LIMIT keeps an <em>arbitrary</em> N rows").</li>
+<li><strong>RESULT</strong> — the clean final table.</li>
+</ul>
+<h3 id="11-joins-planner-hash-path-and-honesty-about-non-matches">11. Joins: planner, hash path, and honesty about non-matches</h3>
+<p>The ON expression is flattened into AND-conjuncts. Each <code>=</code> conjunct is
+classified by which side its columns come from; clean left/right splits
+become <strong>equi-join keys</strong>, everything else stays a per-pair <em>residual</em> test.</p>
+<ul>
+<li><strong>Hash path</strong> (any equi-keys): build a hash map of right-side rows keyed
+  by <code>groupKey(keys)</code> (rows with NULL keys are excluded — NULL never equals
+  anything), then probe from each left row and apply residuals to the
+  candidates. Bucket insertion order preserves table order, so output is
+  identical to the nested-loop result. This is what makes full-size tables
+  join in milliseconds — see §IV.2.</li>
+<li><strong>Nested-loop path</strong> (no equality at all — inequality joins, cross joins):
+  every pair is tested, guarded at 1.5M pairs with a hint to add an ON
+  equality or pre-filter.</li>
+<li><strong>Outer-join semantics</strong>: unmatched left rows appear as NULL-filled "+"
+  rows (LEFT/FULL) or as ✕ ghost rows annotated "no match — removed by
+  INNER JOIN" (the single most clarifying visual in the app: inner vs.
+  outer join is <em>shown</em>, not told). RIGHT/FULL append unmatched right rows.
+  Matched rows are tinted by left-row provenance so students can see one
+  account "fanning out" across its orders.</li>
+<li><code>USING (col)</code> is rewritten to explicit equalities. (Deviation: Postgres
+  merges the USING column into one; EidosSQL keeps both sides' columns.)</li>
+<li>Guards: 500k result rows max; a global <strong>work meter</strong> (30M evaluation
+  ticks) aborts any runaway query with a teaching hint instead of freezing
+  the tab.</li>
+</ul>
+<h3 id="12-subqueries-ctes-and-correlation">12. Subqueries, CTEs, and correlation</h3>
+<ul>
+<li><strong>CTEs</strong> execute first as nested step groups, then register as tables in
+  a scoped environment (visible to later CTEs and the body — including
+  inside subqueries, which is how <code>(select avg(n) from some_cte)</code> works).</li>
+<li><strong>Scalar / IN / EXISTS subqueries</strong> evaluate lazily at expression time.
+  Uncorrelated ones are cached after one evaluation and — key pedagogy —
+  their steps are emitted <em>inline, right before the clause that uses them</em>,
+  ending with a "Subquery result: 2.125" step so students see the value get
+  plugged in.</li>
+<li><strong>Correlation detection</strong> needs no static analysis: when a subquery
+  evaluates, the enclosing row context sits on an outer-scope stack with a
+  tripwire flag. If column resolution falls through to the outer scope, the
+  flag trips → the subquery is correlated → it isn't cached, it re-runs per
+  row (silently after the first, whose steps are shown as the illustrative
+  case), and the wrap-up step explains exactly that. Code in Appendix C-2;
+  the reasoning in §0.3 ③.</li>
+<li><code>IN (subquery)</code> membership uses a hashed set (with SQL's NULL-in-list
+  semantics preserved), so it stays linear on full tables.</li>
+<li>Scalar subqueries enforce Postgres's contract with explanations: one
+  column ("used as a single value"), at most one row ("use IN instead of
+  =" when many rows come back), NULL when empty.</li>
+</ul>
+<h3 id="13-the-teaching-error-catalog">13. The teaching-error catalog</h3>
+<p>Errors are the app's second curriculum: <strong>65 error sites, 38 with a teaching
+hint.</strong> The notable ones:</p>
+<table>
+<thead>
+<tr>
+<th>Mistake</th>
+<th>What EidosSQL says</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SELECT alias used in WHERE/HAVING</td>
+<td>"WHERE runs <em>before</em> SELECT names its outputs… repeat the expression, or filter a subquery/CTE"</td>
+</tr>
+<tr>
+<td>Aggregate in WHERE</td>
+<td>"WHERE filters rows before grouping — use HAVING"</td>
+</tr>
+<tr>
+<td>Bare column with GROUP BY</td>
+<td>"SQL no longer knows <em>which</em> single value to show — group by it or aggregate it"</td>
+</tr>
+<tr>
+<td>Window function in WHERE/HAVING</td>
+<td>"computed near the end — compute it in a CTE, then filter"</td>
+</tr>
+<tr>
+<td><code>"Walmart"</code> in double quotes</td>
+<td>"double quotes name a <em>column</em>; use single quotes for text"</td>
+</tr>
+<tr>
+<td>LEFT JOIN without ON</td>
+<td>"without ON, every row pairs with every row"</td>
+</tr>
+<tr>
+<td>FROM-subquery without alias</td>
+<td>why the name is required, with the fix</td>
+</tr>
+<tr>
+<td>Scalar subquery returns N rows</td>
+<td>"comparing against many values? use IN"</td>
+</tr>
+<tr>
+<td>Nested aggregates</td>
+<td>"compute the inner aggregate in a CTE first"</td>
+</tr>
+<tr>
+<td>Ambiguous column</td>
+<td>lists the candidate tables, shows the qualified form</td>
+</tr>
+<tr>
+<td>Unknown column/table/function</td>
+<td>lists what <em>is</em> available</td>
+</tr>
+<tr>
+<td>Division by zero</td>
+<td>suggests <code>NULLIF(denominator, 0)</code></td>
+</tr>
+<tr>
+<td>UNION column-count mismatch</td>
+<td>"set operations stack results vertically…"</td>
+</tr>
+<tr>
+<td>WHERE after GROUP BY</td>
+<td>word-order fix with the WHERE/HAVING rule</td>
+</tr>
+<tr>
+<td>DISTINCT + ORDER BY on unselected column</td>
+<td>why merging duplicates hides the column</td>
+</tr>
+</tbody>
+</table>
+<h3 id="14-the-postgres-bridge-serverpgbridgets">14. The Postgres bridge (<code>server/pgBridge.ts</code>)</h3>
+<p>Browsers can't speak the Postgres wire protocol, so "connect your own
+database" is a 161-line middleware living <em>inside the student's own Vite
+dev server</em> (<code>configureServer</code>/<code>configurePreviewServer</code>):</p>
+<ul>
+<li>Two endpoints: <code>POST /api/pg/snapshot {conn, limit}</code> → database name +
+  every public-schema base table (max 40) with columns, total row count,
+  and up to <code>limit</code> rows (hard cap 50,000; <code>limit ≤ 0</code> means "all"); and
+  <code>POST /api/pg/query {conn, sql}</code> → runs one student query against the
+  real database for the live-verification badge (read-only session, 8 s
+  statement timeout, 10,000-row cap).</li>
+<li><strong>Safety</strong>: the session is forced <code>READ ONLY</code>; only catalog queries and
+  <code>SELECT … LIMIT</code> are ever issued; identifiers are quote-escaped.</li>
+<li>Type mapping: Postgres <code>data_type</code> → the engine's
+  <code>integer/numeric/text/timestamp/date/boolean</code>; <code>pg</code> type parsers are
+  overridden so numerics arrive as numbers and dates/timestamps as strings,
+  then normalized to the engine's canonical formats (strip <code>T</code>, ms, tz).</li>
+<li><strong>Privacy</strong>: connection strings never persist server-side and never leave
+  the machine; a bare name like <code>northwind</code> expands to
+  <code>postgres://localhost:5432/…</code>.</li>
+<li>On a static deployment the endpoint doesn't exist; the client detects the
+  404/network failure and explains that this feature needs <code>npm run dev</code>.
+  (Graceful degradation was a deliberate requirement — §III.8.)</li>
+</ul>
+<h3 id="15-ui-implementation-notes">15. UI implementation notes</h3>
+<ul>
+<li><strong>Editor</strong> = a transparent <code>&lt;textarea&gt;</code> stacked on a highlighted <code>&lt;pre&gt;</code>
+  with synced scroll — the classic overlay technique, but the highlight
+  layer is built from the <em>engine's own tokenizer</em>, with span-splitting to
+  overlay the active-clause and error ranges. Extracted to
+  <code>src/ui/highlight.ts</code> so the editor, presentation mode, and print all
+  share one implementation.</li>
+<li><strong>StepTable</strong> renders <code>motion.tr</code> rows keyed by stable row id inside
+  <code>AnimatePresence</code>: exits fade, survivors FLIP into place, entries fade in.
+  Above 150 rows (the 2,500-row result view) it switches to static <code>&lt;tr&gt;</code>s —
+  animating a thousand rows would burn CPU for zero pedagogy. Numeric cells
+  right-align with <code>tabular-nums</code>.</li>
+<li><strong>Timeline</strong> chips auto-scroll the active chip into view; nesting depth
+  renders as <code>›</code> prefixes and dashed borders; source colors render as a
+  single wash, a half-and-half linear-gradient, or up to 4 stripes.</li>
+<li><strong>App state</strong> is deliberately boring React <code>useState</code>: the run is an
+  immutable <code>Step[]</code>, so Prev/Next/Play/scrub are just an index change —
+  stepping backwards is free and needs no inverse operations (§III.10).</li>
+<li>Playback pace is 2.4 s/step ÷ speed; keyboard arrows are ignored while
+  typing in inputs; <code>MotionConfig reducedMotion="user"</code> plus a CSS
+  reduced-motion block respect accessibility settings.</li>
+<li><strong>Presentation mode</strong> is one boolean and a CSS class: <code>.presenting</code> hides
+  the editor pane, reveals the docked <code>SqlView</code>, and scales typography. Esc
+  exits. <strong>Print</strong> reuses the same <code>SqlView</code> via <code>@media print</code>, which also
+  forces light tokens and unclips the table.</li>
+<li><strong>Theme</strong> is a <code>data-theme</code> attribute on <code>&lt;html&gt;</code>: dark tokens apply
+  under <code>prefers-color-scheme: dark</code> <em>unless</em> the user chose light, and
+  under an explicit dark choice regardless of the OS. Persisted in
+  localStorage.</li>
+<li><strong>Count-up descriptions</strong> split the text on number tokens and animate
+  each integer 0→value over ~500 ms (cubic ease-out, <code>requestAnimationFrame</code>),
+  snapping to the exact original formatting at the end; decimals and
+  reduced-motion users render statically.</li>
+<li><strong>CSV ingestion</strong> (<code>src/data/csv.ts</code>) is a hand-rolled RFC-4180 parser
+  (quoted fields, <code>""</code> escapes, CRLF, embedded newlines) plus per-column
+  type inference by regex consensus over non-empty values; conversion
+  mirrors the embedded dataset's conventions so the engine treats all three
+  sources identically.</li>
+</ul>
+<h3 id="16-design-system">16. Design system</h3>
+<p>Tokens follow a validated reference palette (categorical slots ordered to
+maximize worst-case color-vision-deficiency separation — verified with a
+palette validator in both light and dark, against each theme's actual
+surface):</p>
+<ul>
+<li><strong>Status colors</strong> (kept/dropped/new) are semantically reserved and always
+  paired with a glyph (✓ ✕ +) and often a note — color is never the only
+  carrier of meaning.</li>
+<li><strong>Group/partition colors</strong> are ~10%-opacity washes plus a 3px left edge;
+  the actual key values are always visible as text in the row.</li>
+<li>Chrome follows the token sheet (<code>--page/--surface/--ink/--grid/…</code>) with a
+  full dark variant; code tokens are darkened/lightened per theme for
+  text-grade contrast.</li>
+<li>System font stack; monospace reserved for SQL, identifiers, and the step
+  title (which quotes the query).</li>
+</ul>
+<h3 id="17-datasets">17. Datasets</h3>
+<p><code>src/data/datasets.ts</code> is generated from the live class database: 12
+well-known accounts chosen to span four regions and nine reps, each with
+its first/middle/last orders and web events so time-series examples work,
+plus intact edge cases (§5). Rows are stored as compact JSON arrays with
+typed column definitions — the <code>integer</code> markers are what power
+Postgres-style integer division (§8).</p>
+<hr />
+<h2 id="part-iii-design-decisions-trade-offs">Part III — Design decisions &amp; trade-offs</h2>
+<p><em>The section an interviewer will spend the most time on. Each entry states
+the problem, the options, the choice, what it cost, and what I'd revisit.</em></p>
+<h3 id="iii1-build-the-sql-engine-or-embed-one">III.1 Build the SQL engine, or embed one?</h3>
+<p><strong>Options.</strong> (a) sql.js / SQLite compiled to WebAssembly. (b) A parser
+library (node-sql-parser) plus my own evaluator. (c) Everything from scratch.</p>
+<p><strong>Chose (c).</strong> The product requirement isn't "run SQL" — it's "show the
+intermediate state after every logical clause, with row identities stable
+across snapshots so motion is meaningful." Embedded engines expose results,
+not the evaluator's internal states; there's no hook that says "you've
+finished the WHERE clause, here's the working set." I'd have ended up
+re-running truncated variants of the query and <em>inferring</em> intermediate
+states — fragile and often wrong (you can't derive pre-GROUP BY rows from a
+grouped result).</p>
+<p><strong>Cost.</strong> ~3,900 lines of engine, and a permanent correctness burden: every
+SQL rule I get subtly wrong is a wrong lesson. That cost is what justifies
+the differential test — the two are a package deal.</p>
+<p><strong>What I'd revisit.</strong> Nothing about the decision; it was forced by the
+requirement. But I'd write the differential harness <em>first</em> next time
+(§22), because it turned out to be the thing that made the engine
+trustworthy, and building it earlier would have caught bugs sooner.</p>
+<h3 id="iii2-snapshot-per-clause-vs-replaying-prefixes">III.2 Snapshot-per-clause vs. replaying prefixes</h3>
+<p><strong>Options.</strong> (a) Emit a snapshot inline as evaluation proceeds. (b) Re-run
+the query N times, each truncated to the first k clauses.</p>
+<p><strong>Chose (a).</strong> Prefix-replay is tempting because it needs no engine changes,
+but it's O(clauses) full evaluations, it can't represent steps that aren't
+valid queries (a "collapse" step, a NULL-extended join row), and it can't
+preserve identity across runs — the very thing the animation depends on.</p>
+<p><strong>Cost.</strong> The executor carries presentation concerns (<code>pushStep</code> calls
+interleaved with evaluation), so it isn't a pure evaluator. Roughly a third
+of <code>executor.ts</code> is narration: building descriptions, marking row statuses,
+tagging sources.</p>
+<p><strong>What I'd revisit.</strong> Separate the two with an event-emitter: the evaluator
+emits typed events (<code>joinMatched</code>, <code>rowFiltered</code>) and a separate "narrator"
+module turns events into <code>Step</code>s. Same output, better testability, and the
+engine would become reusable for non-visual purposes.</p>
+<h3 id="iii3-stable-row-identities-vs-positional-diffing">III.3 Stable row identities vs. positional diffing</h3>
+<p><strong>Options.</strong> (a) Give every row a stable id the engine guarantees across
+snapshots. (b) Let the UI diff consecutive tables heuristically (by index or
+by content hash).</p>
+<p><strong>Chose (a).</strong> Positional diffing breaks exactly where the teaching value
+is: after an ORDER BY every index changes, so a heuristic reports "all rows
+replaced" instead of "the rows re-sorted." Content hashing fails on
+duplicate rows (which the DISTINCT lesson is <em>about</em>).</p>
+<p><strong>Cost.</strong> Every operator must thread ids through. Composite schemes
+(<code>left⋈right</code>) make ids long on multi-way joins; they're opaque strings, so
+debugging by eye is harder.</p>
+<p><strong>What I'd revisit.</strong> Interned integer ids with a side table, purely for
+memory on large joins. Not urgent — string ids have never been the
+bottleneck.</p>
+<h3 id="iii4-sampling-then-hash-joins">III.4 Sampling, then hash joins</h3>
+<p><strong>Original decision.</strong> Connect-your-own-Postgres sampled 300 rows/table,
+justified as pedagogy ("nobody learns from 7,000 rows") and enforced by a
+1.5M-pair join guard.</p>
+<p><strong>The flaw.</strong> That reasoning conflated <em>display</em> with <em>computation</em>.
+Displaying 100 rows is pedagogy; computing over only 300 is a wrong answer.
+The real constraint was an O(n×m) nested-loop join.</p>
+<p><strong>Fix.</strong> A join planner with a hash path (§11), plus a hashed set for
+<code>IN (subquery)</code>, plus a global work meter replacing the crude pair guard.
+Then the sample cap could rise to "all rows" (50k/table) because full-size
+joins became linear. Verified: full Parch &amp; Posey join+group+sort in <strong>38 ms</strong>,
+identical to <code>psql</code>.</p>
+<p><strong>Cost.</strong> The planner adds real complexity — conjunct flattening, side
+classification, residual predicates, NULL-key exclusion — and two code paths
+to keep in agreement. Mitigated by differential tests that exercise both
+(<code>join with residual condition</code>, <code>non-equi join</code>).</p>
+<p><strong>Lesson worth stating in an interview.</strong> I had rationalized a limitation as
+a feature. The user's question ("is there really no way…?") was the prompt to
+re-examine it, and the honest answer was that my algorithm — not the
+pedagogy — was the constraint.</p>
+<h3 id="iii5-runtime-tripwire-vs-static-analysis-for-correlation">III.5 Runtime tripwire vs. static analysis for correlation</h3>
+<p><strong>Options.</strong> (a) A static pass resolving identifiers against enclosing
+scopes before evaluation. (b) Detect at runtime by observing whether name
+resolution reaches an outer frame.</p>
+<p><strong>Chose (b)</strong> — see §0.3 ③. Reuses the resolver that must exist anyway;
+~15 lines; and the same signal drives the narration.</p>
+<p><strong>Cost.</strong> The answer arrives <em>after</em> the first evaluation, so the first run
+of an uncorrelated subquery isn't cached in advance (harmless — it's cached
+immediately after). And correlation is discovered per call site rather than
+proven for the query as a whole, so I can't use it for query-level
+optimization decisions the way a real planner would.</p>
+<p><strong>What I'd revisit.</strong> Nothing at this scale. A production optimizer needs
+the static pass because it must decide <em>before</em> execution.</p>
+<h3 id="iii6-iso-strings-for-dates-instead-of-date-objects">III.6 ISO strings for dates instead of <code>Date</code> objects</h3>
+<p><strong>Options.</strong> (a) JS <code>Date</code>. (b) A custom temporal class. (c) ISO-8601
+strings, parsed to UTC on demand.</p>
+<p><strong>Chose (c).</strong> Three properties matter: they render exactly as Postgres
+prints them (no formatting layer), they compare correctly with plain string
+comparison (ISO-8601 is lexicographically ordered), and they can't drift
+through local timezones — a <code>Date</code> silently re-interprets in the browser's
+zone, which would make results differ between the student's laptop and the
+differential test.</p>
+<p><strong>Cost.</strong> Date arithmetic parses on demand (cheap at these sizes, wasteful
+at scale), and correctness depends on inputs being normalized at the edge —
+so the CSV parser and the Postgres bridge both normalize into the same
+format. That's a real invariant maintained in three places.</p>
+<p><strong>What I'd revisit.</strong> If the engine ever handled timezone-aware timestamps,
+this breaks and needs a proper temporal type. For a teaching subset it's the
+right simplification — and knowing <em>why</em> it's a simplification is the point.</p>
+<h3 id="iii7-differential-testing-vs-hand-written-expectations">III.7 Differential testing vs. hand-written expectations</h3>
+<p><strong>Options.</strong> (a) Assert expected result sets by hand. (b) Assert <em>agreement</em>
+with a reference implementation.</p>
+<p><strong>Chose (b)</strong> as the primary oracle, with (a) as a supplement. Hand-written
+expectations for SQL are laborious and circular — the same misunderstanding
+that produced a bug tends to produce the "expected" value. Postgres is the
+ground truth the app claims to imitate, so imitation is exactly what should
+be asserted.</p>
+<p><strong>Cost.</strong> The deep suite needs a live Postgres, so it can't run everywhere —
+solved in CI with a service container, and locally with <code>createdb</code>. That's
+why the DB-free Vitest layer exists too: <code>npm test</code> must be meaningful on any
+machine.</p>
+<p><strong>Limits worth naming.</strong> A differential test only validates <em>final results of
+valid queries</em>. It cannot see error messages, and it cannot see the steps —
+which are the actual product. That gap is precisely what the unit suites
+cover (§18.1), and knowing where your strongest test is blind is the point.</p>
+<h3 id="iii8-dev-server-bridge-vs-a-hosted-backend">III.8 Dev-server bridge vs. a hosted backend</h3>
+<p><strong>Options.</strong> (a) Host a backend that proxies to student databases.
+(b) Ship a bridge inside the student's own dev server. (c) WebAssembly
+Postgres in the browser.</p>
+<p><strong>Chose (b).</strong> (a) is a security and privacy problem — credentials leaving
+the machine, a service to operate, and a target worth attacking, all for a
+classroom tool. (c) can't reach a database that lives on localhost anyway.
+(b) keeps credentials on the student's machine, needs no infrastructure, and
+costs ~160 lines.</p>
+<p><strong>Cost.</strong> The feature only exists when running locally. Handled explicitly:
+the static build detects the missing endpoint and explains why, rather than
+failing mysteriously — the whole app stays useful on GitHub Pages, minus one
+feature.</p>
+<p><strong>Defense in depth.</strong> <code>SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY</code>,
+only catalog + <code>SELECT … LIMIT</code> queries, escaped identifiers, hard row caps,
+no server-side persistence.</p>
+<h3 id="iii9-a-type-pass-just-for-integer-division">III.9 A type pass just for integer division</h3>
+<p><strong>Problem.</strong> Postgres computes <code>7 / 2 = 3</code>, and the course teaches this
+gotcha. JS has no integer type, so a naive evaluator returns 3.5 — teaching
+the wrong lesson.</p>
+<p><strong>Options.</strong> (a) Ignore it. (b) Full static type checking of expressions.
+(c) A minimal <code>isIntExpr</code> predicate propagating int-ness where it matters.</p>
+<p><strong>Chose (c).</strong> Column metadata carries <code>isInt</code>; the predicate propagates
+through literals, arithmetic, <code>count/sum/min/max</code>, CASE branches, EXTRACT,
+and casts; division truncates only when both sides are integer-typed.
+Memoized per AST node so it costs nothing in loops.</p>
+<p><strong>Cost.</strong> It's a <em>partial</em> type system — it knows int vs. not-int and
+nothing else. It can be wrong in corners a real type checker would get right
+(e.g. deeply nested CASE branches mixing types).</p>
+<p><strong>Why it's still right.</strong> Reproducing the single most-taught SQL arithmetic
+gotcha is worth ~40 lines. Building a full type checker for a teaching tool
+would not be. Knowing the difference is the engineering judgment.</p>
+<h3 id="iii10-immutable-step-instead-of-incremental-ui-state">III.10 Immutable <code>Step[]</code> instead of incremental UI state</h3>
+<p><strong>Chose:</strong> run the whole query eagerly, produce an immutable array of steps,
+and let the UI hold a single index.</p>
+<p><strong>Consequence.</strong> Stepping backward is free — no inverse operations, no
+recomputation, no possibility of forward/backward divergence. Play, scrub,
+and jump-to-chip are all the same operation. The stale-run detection is a
+string compare. Testing is trivial: assert on the array.</p>
+<p><strong>Cost.</strong> Peak memory holds every snapshot (bounded by the 100-row display
+cap, so it's small), and a query must finish before <em>any</em> step is visible —
+no streaming. At the enforced work ceiling that's imperceptible.</p>
+<p><strong>What I'd revisit.</strong> If the engine ever supported very large inputs,
+snapshots would need to become lazy (store row <em>ids</em> per step and
+reconstruct on demand). Deliberately not built — it's speculative complexity
+at the current scale.</p>
+<hr />
+<h2 id="part-iv-complexity-performance">Part IV — Complexity &amp; performance</h2>
+<h3 id="iv1-hot-paths">IV.1 Hot paths</h3>
+<p><em>n = left/input rows, m = right rows, k = matches, g = groups, p = partition size.</em></p>
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Complexity</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tokenize / parse</td>
+<td>O(chars)</td>
+<td>single pass, no backtracking</td>
+</tr>
+<tr>
+<td>FROM (table instantiation)</td>
+<td>O(n)</td>
+<td>fresh column ids + row ids</td>
+</tr>
+<tr>
+<td>Hash join (equi)</td>
+<td>O(n + m + k)</td>
+<td>build side m, probe side n</td>
+</tr>
+<tr>
+<td>Nested-loop join (non-equi)</td>
+<td>O(n × m)</td>
+<td>guarded at 1.5M pairs</td>
+</tr>
+<tr>
+<td>WHERE / HAVING</td>
+<td>O(n × cost(predicate))</td>
+<td>one pass, per-row snapshot</td>
+</tr>
+<tr>
+<td>GROUP BY</td>
+<td>O(n)</td>
+<td>hash on <code>groupKey</code>, insertion-ordered</td>
+</tr>
+<tr>
+<td>Aggregates</td>
+<td>O(n) total</td>
+<td>computed per group, memoized per group</td>
+</tr>
+<tr>
+<td>DISTINCT / UNION dedupe</td>
+<td>O(n)</td>
+<td>hashed <code>groupKey</code> set</td>
+</tr>
+<tr>
+<td><code>IN (subquery)</code></td>
+<td>O(m) build + O(1) per probe</td>
+<td>hashed set, cached if uncorrelated</td>
+</tr>
+<tr>
+<td>Correlated subquery</td>
+<td>O(n × subquery)</td>
+<td>inherent — it re-runs per outer row</td>
+</tr>
+<tr>
+<td>ORDER BY</td>
+<td>O(n log n)</td>
+<td>stable decorate-sort-undecorate</td>
+</tr>
+<tr>
+<td>Window functions</td>
+<td>O(n) partition + O(p log p) sort</td>
+<td>per partition</td>
+</tr>
+<tr>
+<td>Window frame (explicit ROWS)</td>
+<td>O(n × frame)</td>
+<td>naive per-row frame recompute</td>
+</tr>
+</tbody>
+</table>
+<p><strong>The one honest inefficiency</strong>: explicit <code>ROWS BETWEEN</code> frames recompute
+the aggregate over each row's frame rather than maintaining a running
+accumulator. That's O(n × frame width) where a sliding-window accumulator
+would be O(n). Fine at teaching scale, and I know it — a good thing to name
+in an interview <em>before</em> being asked.</p>
+<h3 id="iv2-the-join-rewrite-measured">IV.2 The join rewrite, measured</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Before (nested loop)</th>
+<th>After (hash path)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Full <code>accounts ⋈ orders</code> (352 × 6,912)</td>
+<td>2.4M pair evaluations — refused by guard</td>
+<td><strong>38 ms</strong>, all 8 steps</td>
+</tr>
+<tr>
+<td>Max usable table size</td>
+<td>~300 rows sampled</td>
+<td>50,000 rows/table</td>
+</tr>
+<tr>
+<td>Result fidelity</td>
+<td>sample-dependent</td>
+<td>cell-identical to <code>psql</code></td>
+</tr>
+</tbody>
+</table>
+<p>The hash path wins because it replaces "test every pair" with "bucket the
+right side once, then look up." Bucket insertion order preserves table
+order, so the output row order matches the nested-loop result exactly — which
+is why the differential test passes on both paths.</p>
+<h3 id="iv3-guard-rails-and-why-each-number">IV.3 Guard rails (and why each number)</h3>
+<table>
+<thead>
+<tr>
+<th>Guard</th>
+<th>Value</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Work meter</td>
+<td>30M ticks</td>
+<td>~a second of evaluation; aborts runaway queries with a teaching hint instead of freezing the tab</td>
+</tr>
+<tr>
+<td>Nested-loop pairs</td>
+<td>1.5M</td>
+<td>only reachable without equi-keys; the message suggests adding an ON equality</td>
+</tr>
+<tr>
+<td>Join result rows</td>
+<td>500k</td>
+<td>catches a wrong join key producing a cartesian explosion</td>
+</tr>
+<tr>
+<td>Bridge rows/table</td>
+<td>50,000</td>
+<td>keeps a snapshot in memory and the transfer quick</td>
+</tr>
+<tr>
+<td>Displayed rows/step</td>
+<td>100</td>
+<td>the animation is the lesson; more rows teach nothing</td>
+</tr>
+<tr>
+<td>Displayed rows/result</td>
+<td>2,500</td>
+<td>the result is data, not animation — but still bounded</td>
+</tr>
+<tr>
+<td>Animated rows</td>
+<td>≤150</td>
+<td>above this, FLIP animation costs CPU for no pedagogy</td>
+</tr>
+</tbody>
+</table>
+<p>Design principle behind all of them: <strong>fail with an explanation, never with
+a frozen tab.</strong> Every guard's message names the likely cause and the fix.</p>
+<hr />
+<h2 id="part-v-trust-testing-ci">Part V — Trust: testing &amp; CI</h2>
+<h3 id="18-verification">18. Verification</h3>
+<p>Four layers, shallowest to deepest.</p>
+<h4 id="181-the-layers">18.1 The layers</h4>
+<ul>
+<li><code>npm test</code> — <strong>74 Vitest unit tests</strong>, no database required, covering what
+  the differential test structurally cannot see:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Suite</th>
+<th>Tests</th>
+<th>Covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>errors.test.ts</code></td>
+<td>18</td>
+<td>every classic mistake pinned to message, hint, and source span</td>
+</tr>
+<tr>
+<td><code>steps.test.ts</code></td>
+<td>13</td>
+<td>phase order, kept/dropped marks, the Mattel ghost row, id stability across ORDER BY, timeline source names and color stability</td>
+</tr>
+<tr>
+<td><code>csv.test.ts</code></td>
+<td>11</td>
+<td>quoting, CRLF, embedded newlines, type inference, ragged rows, name collisions</td>
+</tr>
+<tr>
+<td><code>liveverify.test.ts</code></td>
+<td>9</td>
+<td>live-verification skip rules and the engine-vs-Postgres result comparison</td>
+</tr>
+<tr>
+<td><code>values.test.ts</code></td>
+<td>10</td>
+<td>three-valued logic, interval decomposition, NULL-aware grouping keys</td>
+</tr>
+<tr>
+<td><code>engine.test.ts</code></td>
+<td>13</td>
+<td>golden Postgres semantics that need no DB (integer division, <code>NOT IN</code> with NULL, peer-inclusive running totals, empty-input aggregates, VALUES + CTE column lists)</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><code>npm run smoke</code> — 26 engine cases (foundations through capstones,
+  including <strong>every curated example</strong>) printing step traces and results. A
+  broken example fails CI.</li>
+<li><code>npm run verify</code> — the <strong>differential test</strong>: creates a scratch Postgres
+  database (<code>eidossql_verify</code>), loads the exact embedded dataset, runs a
+  <strong>63-query battery</strong> through both the engine and Postgres, and diffs
+  results cell-by-cell (NULL-tokenized, float-tolerant, multiset comparison
+  unless the query has a determining ORDER BY), then drops the database.
+  Coverage: every join type on both planner paths, grouping edge cases, all
+  window function classes and frames, set ops, correlated and uncorrelated
+  subqueries, date/interval math, casts, integer division, and the three
+  capstones. <strong>Current status: 63/63 identical.</strong></li>
+<li><strong>Continuous integration</strong> (<code>.github/workflows/ci.yml</code>): every push runs
+  typecheck → oxlint → unit suites → the full differential test against a
+  real <code>postgres:16</code> <strong>service container</strong> → production build. The oracle
+  isn't mocked in CI: the pipeline boots an actual PostgreSQL and diffs the
+  engine against it. A second workflow (<code>deploy.yml</code>) publishes the static
+  build to GitHub Pages on main.</li>
+<li><strong>Live verification at runtime</strong> (§5): when a student is connected to
+  Postgres with full tables, every query they run is <em>also</em> executed by the
+  real database and diffed — so the guarantee isn't just "the test suite
+  passed once," it's re-proven on the student's own machine, for their own
+  query, every time. Where comparison would mislead (sampled data, LIMIT
+  without ORDER BY), it declines with a stated reason instead.</li>
+</ul>
+<h4 id="182-war-stories-three-bugs-three-lessons">18.2 War stories — three bugs, three lessons</h4>
+<p><strong>① Aggregates over zero rows.</strong> <code>SELECT count(*) FROM orders WHERE id &lt; 0</code>
+returned <em>no rows</em>. Postgres returns <strong>one</strong> row containing <code>0</code>. The rule:
+an aggregate with no GROUP BY always produces exactly one row, even over an
+empty input — because the whole table is one implicit group, and an empty
+group is still a group. I didn't know this rule; the differential test did.
+Fix: seed a single empty group when there's no GROUP BY and no rows.
+<em>Lesson: a reference implementation encodes rules you don't know you don't
+know.</em></p>
+<p><strong>② Window functions over grouped rows.</strong>
+<code>rank() over (order by sum(x))</code> with a GROUP BY failed its value lookup. The
+cause was subtle: window values are keyed by row id, but the group-context
+constructor was handing back the <em>first member row</em> of each group rather
+than the group row itself, so the lookup missed. Fix: pass the group row
+(whose id is <code>g:&lt;key&gt;</code>) as the context row. <em>Lesson: identity schemes must be
+consistent everywhere, and a mixed-feature query is where inconsistency
+surfaces.</em></p>
+<p><strong>③ The CSV blank-line question (found by writing a test).</strong> Writing
+<code>csv.test.ts</code> forced a question the implementation had answered by accident:
+is a blank line a NULL row, or noise? I'd written a filter that made
+single-column files behave differently from multi-column ones — a silent
+inconsistency. Decided explicitly (skip blank <em>lines</em>, pandas-style; blank
+<em>cells</em> become NULL), implemented it uniformly, and pinned both behaviors
+with tests. <em>Lesson: writing tests is a design review — it surfaces decisions
+you made without noticing.</em></p>
+<h4 id="183-why-this-pyramid-in-one-sentence-each">18.3 Why this pyramid, in one sentence each</h4>
+<ul>
+<li><strong>Unit tests</strong> protect the parts with <em>no reference implementation</em> —
+  error messages, step structure, the visual grammar.</li>
+<li><strong>The differential test</strong> protects the parts where a reference exists,
+  and is stronger than any expectation I could write by hand.</li>
+<li><strong>CI</strong> makes both claims true continuously instead of "true on my machine
+  the last time I remembered to run it."</li>
+</ul>
+<hr />
+<h2 id="part-vi-limits-workflows-and-reflection">Part VI — Limits, workflows, and reflection</h2>
+<h3 id="19-known-limitations-deviations-from-postgres">19. Known limitations &amp; deviations from Postgres</h3>
+<p>Statements: SELECT only — no INSERT/UPDATE/DELETE/DDL, one statement at a
+time. Within SELECT, not supported: <code>ANY</code>/<code>ALL</code>/<code>SOME</code> comparisons,
+<code>NATURAL JOIN</code>, <code>LATERAL</code>, named windows (<code>WINDOW w AS …</code>), <code>GROUPING
+SETS/ROLLUP/CUBE</code>, <code>FILTER (WHERE …)</code>, <code>WITHIN GROUP</code>/ordered-set
+aggregates, <code>string_agg</code>/<code>array_agg</code>, arrays/JSON operators, <code>RANGE</code>/
+<code>GROUPS</code> explicit frames (<code>ROWS</code> frames and defaults are supported),
+recursive CTEs, <code>TABLESAMPLE</code>, collation controls.</p>
+<p>Deliberate deviations: <code>USING</code> keeps both join columns instead of merging
+(§11); <code>to_char</code> implements the common patterns only; very lenient
+number-vs-numeric-string comparisons (teaching kindness over strictness);
+row output order without ORDER BY follows the engine's deterministic
+pipeline order (Postgres promises nothing there anyway).</p>
+<p>Practical ceilings: see §IV.3.</p>
+<p><strong>Being able to recite this list is itself an interview asset</strong> — it shows
+the scope was <em>chosen</em>, not accidental.</p>
+<h3 id="20-workflows">20. Workflows</h3>
+<pre><code class="language-bash">npm run dev      # dev server + Postgres bridge  → http://localhost:5173
+npm run build    # static production build (dist/) — bridge not included
+npm run preview  # serve the build locally (bridge included)
+npm test         # 74 Vitest unit tests (no database needed)
+npm run lint     # oxlint
+npm run smoke    # engine smoke test (26 cases)
+npm run verify   # differential test vs local Postgres (needs psql/createdb)
+</code></pre>
+<p>Environment note: if <code>npm run dev</code> or <code>npm run lint</code> fails with "Cannot find
+native binding" (a known npm optional-dependency bug), run
+<code>npm install --no-save @rolldown/binding-darwin-arm64@&lt;version&gt;</code> (or
+<code>@oxlint/binding-darwin-arm64</code> for the linter).</p>
+<h3 id="21-demo-script-5-minutes-for-a-person">21. Demo script (5 minutes, for a person)</h3>
+<ol>
+<li><strong>Open on the HAVING example.</strong> "This is a join, a group-by, and a filter
+   on the group." Press Play. Let the eight steps run once without talking.</li>
+<li><strong>Step back to the JOIN.</strong> Point at the red ✕ row: "Mattel has no orders.
+   An inner join deletes it. That's the whole difference between inner and
+   left join, and you can see it."</li>
+<li><strong>Step to GROUP BY.</strong> "Thirty rows become eleven groups — same colors,
+   contiguous." Then the collapse: "each group becomes exactly one row, and
+   the aggregate is computed across the rows it swallowed."</li>
+<li><strong>Step to SELECT.</strong> "Notice this is step six of eight. SELECT is almost
+   the <em>last</em> thing that happens — that's why you can't use a SELECT alias
+   in WHERE."</li>
+<li><strong>Load the capstone.</strong> Point at the timeline: "colors tell you which
+   table each step is about. This chip is half-and-half — it's the join.
+   These green ones are inside the CTE, and <em>this</em> green one is the subquery
+   in the HAVING clause reading that same CTE."</li>
+<li><strong>Break something.</strong> Type <code>where total_spent &gt; 5000</code> (an alias in WHERE)
+   and run: "and when you get it wrong, it explains the rule instead of
+   saying 'column does not exist.'"</li>
+</ol>
+<h3 id="22-what-id-do-differently-and-what-i-learned">22. What I'd do differently, and what I learned</h3>
+<p><strong>Differently:</strong></p>
+<ol>
+<li><strong>Write the differential harness first.</strong> It's what made the engine
+   trustworthy; earlier would have meant fewer bugs living longer.</li>
+<li><strong>Separate evaluation from narration</strong> (§III.2) — an event-emitting
+   evaluator plus a narrator module would be more testable and reusable.</li>
+<li><strong>Design the join planner up front.</strong> Sampling was a workaround for an
+   algorithm choice I hadn't examined; the planner was under a day's work
+   once I actually looked (§III.4).</li>
+<li><strong>Decide edge-case semantics explicitly</strong>, rather than discovering (as
+   with CSV blank lines) that the implementation had decided for me.</li>
+</ol>
+<p><strong>Learned:</strong></p>
+<ul>
+<li><em>A reference implementation is the best test oracle available.</em> Assert
+  agreement, not expectations.</li>
+<li><em>Know what your strongest test can't see.</em> The differential test is blind
+  to errors and to steps — the two things students actually interact with.</li>
+<li><em>A limitation you've rationalized is still a limitation.</em> "Sampling is
+  pedagogically correct" was a story I told myself about an O(n×m) join.</li>
+<li><em>Data-model invariants can carry UX requirements.</em> Stable row ids are an
+  engine-level promise that makes a UI-level animation trivially correct.</li>
+<li><em>Error messages are product surface.</em> They deserve the same design
+  attention — and the same tests — as features.</li>
+</ul>
+<hr />
+<h2 id="appendix-a-interview-qa">Appendix A — Interview Q&amp;A</h2>
+<p><strong>A-1. Why not just use SQLite/WASM?</strong>
+It only exposes final results. The product needs the working set <em>between</em>
+clauses, with rows retaining identity so motion is meaningful. There's no
+hook for that, and intermediate states can't be reconstructed from a final
+result — you can't recover pre-GROUP BY rows from grouped output. See §III.1.</p>
+<p><strong>A-2. How does the engine actually work, end to end?</strong>
+Tokenizer → recursive-descent parser producing an AST where every node
+carries a source span → an executor that walks the AST in SQL's <em>logical</em>
+clause order, evaluating for real and pushing an immutable snapshot after
+each stage. The UI receives <code>Step[]</code> and renders index N.</p>
+<p><strong>A-3. Why is a source span on every AST node important?</strong>
+One invariant, three features: the editor highlights the clause belonging to
+the current step, errors underline the exact offending token, and each step
+knows which text produced it. It's nearly free during parsing and
+impossible to retrofit reliably afterward.</p>
+<p><strong>A-4. How do you make the animation correct rather than decorative?</strong>
+The engine guarantees stable row ids across snapshots (<code>left⋈right</code>,
+<code>left⋈∅</code>, <code>g:&lt;key&gt;</code>). React keys off those ids; framer-motion FLIPs the
+layout delta. The engine contains no animation code and the UI contains no
+SQL logic — the id contract is the whole interface.</p>
+<p><strong>A-5. Walk me through the join implementation.</strong>
+Flatten ON into AND-conjuncts; classify each <code>=</code> by which side its columns
+come from; clean left/right splits become hash keys, everything else becomes
+a residual predicate. Build a hash map on the right side keyed by
+<code>groupKey</code>, excluding NULL keys (NULL never equals anything); probe from the
+left and apply residuals to candidates. No equi-key at all ⇒ nested loop,
+guarded. Outer joins then append the unmatched rows as NULL-extended.</p>
+<p><strong>A-6. Why exclude NULL keys from the hash build?</strong>
+Because <code>NULL = NULL</code> is unknown, not true, in SQL. A NULL-keyed row can
+never satisfy an equality, so it must never land in a bucket where it could
+be probed into a match. It still participates as an unmatched row in outer
+joins.</p>
+<p><strong>A-7. How do you know a subquery is correlated?</strong>
+At runtime: the enclosing row context is pushed on an outer-scope stack with
+a boolean flag; if name resolution falls through to that frame, the flag
+trips. Correlated ⇒ re-run per row, don't cache. It reuses the resolver
+that has to exist anyway and drives the user-facing explanation too. §III.5.</p>
+<p><strong>A-8. What's the time complexity of the pipeline?</strong>
+Parse O(chars); hash join O(n + m + k); GROUP BY O(n) via hashing; ORDER BY
+O(n log n); windows O(n) partitioning plus O(p log p) sorting per partition.
+The known inefficiency is explicit <code>ROWS</code> frames, recomputed per row rather
+than via a sliding accumulator. See Part IV.</p>
+<p><strong>A-9. How did you test something with this much semantic surface?</strong>
+Differential testing as the primary oracle — 63 queries through both my
+engine and a real Postgres, diffed cell by cell, running in CI against a
+service container. Plus 74 unit tests aimed at what that oracle can't see:
+error messages, step structure, and value-level semantics. §III.7, §18.</p>
+<p><strong>A-10. Tell me about a bug your tests caught.</strong>
+Three, in §18.2. The best one: aggregates over zero rows must return one row,
+not none — a SQL rule I didn't know, which only a reference implementation
+would have told me.</p>
+<p><strong>A-11. What's the weakest part of the codebase?</strong>
+<code>executor.ts</code> at ~2,000 lines mixes evaluation with narration. It's cohesive
+(one pipeline, one order) but it's the file I'd split first — evaluator emits
+events, narrator builds steps. §III.2.</p>
+<p><strong>A-12. How does connecting to a real database work in a browser?</strong>
+It doesn't — browsers can't speak the Postgres wire protocol. A ~160-line
+Vite middleware runs inside the student's own dev server, introspects the
+schema, and returns a snapshot. Read-only session, capped rows, credentials
+never leave the machine. On a static deploy the endpoint is absent and the UI
+explains why instead of erroring. §14, §III.8.</p>
+<p><strong>A-13. Security considerations?</strong>
+The bridge only ever runs locally and only issues catalog queries and
+<code>SELECT … LIMIT</code>; the session is forced read-only; identifiers are escaped;
+nothing is persisted server-side. CSVs are parsed in-browser and never
+uploaded. The static build has no server component at all.</p>
+<p><strong>A-14. How do you handle NULLs?</strong>
+Three-valued logic at the comparison layer: comparisons return <code>null</code> when
+either side is NULL, <code>truthy()</code> treats NULL as "reject," and AND/OR/NOT
+propagate unknowns. But <code>groupKey</code> deliberately treats NULLs as <em>equal</em>,
+because GROUP BY/DISTINCT/set-ops do. The two rules coexisting is exactly
+why <code>NOT IN (… NULL)</code> matches nothing — which is a tested case.</p>
+<p><strong>A-15. Why TypeScript, and did the types earn their keep?</strong>
+Yes, twice concretely: adding <code>sources</code> to the <code>Relation</code> type turned "find
+every place a relation is constructed" into a compiler task — it listed all
+16 sites; and the discriminated-union AST makes the executor's switch
+statements exhaustively checked, so adding a node type surfaces every place
+that must handle it.</p>
+<p><strong>A-16. How would you scale this to a million rows?</strong>
+I wouldn't animate it — but I'd separate computation from presentation:
+stream the pipeline with iterators, store per-step row <em>ids</em> rather than
+materialized snapshots, and reconstruct display rows lazily. The current
+design deliberately trades that for simplicity; the ceilings are enforced
+and explained rather than hidden (§IV.3).</p>
+<p><strong>A-17. What would you add next?</strong>
+Follow-a-row mode (click a row, spotlight it across every step — nearly free
+given stable ids), shareable URLs encoding query + dataset + step index, and
+a predict-mode quiz that hides a step's result until the student commits to
+an answer.</p>
+<p><strong>A-18. How is this different from <code>EXPLAIN</code>?</strong>
+<code>EXPLAIN</code> shows the <em>physical</em> plan — the strategy the optimizer chose.
+EidosSQL shows the <em>logical</em> semantics with actual data: what rows exist
+after each clause. Complementary: one answers "how will the DB execute
+this," the other "what does this query mean."</p>
+<p><strong>A-19. Who is it for, and did it work?</strong>
+Built for a specific user — the professor who hired me as a TA, and her
+students, who kept asking her to redraw tables on a whiteboard. That
+constraint shaped features that a generic tool wouldn't have: presentation
+mode for the projector, a print stylesheet for handouts, and error messages
+written the way a TA would explain them.</p>
+<p><strong>A-20. What does the CI actually run?</strong>
+Typecheck (both tsconfigs), oxlint, 74 unit tests, the 63-query differential
+suite against a <code>postgres:16</code> service container, and a production build —
+on every push. A separate workflow deploys the static build to Pages.</p>
+<hr />
+<h2 id="appendix-b-concept-glossary">Appendix B — Concept glossary</h2>
+<p><em>The vocabulary this project uses. Being able to name these precisely is
+worth as much in an interview as having implemented them.</em></p>
+<p><strong>Recursive-descent parser</strong> — a top-down parser with one function per
+grammar production; operator precedence is encoded in the order functions
+call each other. <em>Here:</em> <code>parser.ts</code>, <code>parseOr → … → parsePrimary</code>.</p>
+<p><strong>AST (abstract syntax tree)</strong> — the tree-shaped representation of parsed
+source. <em>Here:</em> <code>ast.ts</code>, where every node also carries <code>{start, end}</code>.</p>
+<p><strong>Source span</strong> — a <code>{start, end}</code> character range tying a node back to the
+text that produced it. <em>Here:</em> powers the clause spotlight and error
+underlines.</p>
+<p><strong>Logical clause order</strong> — the order SQL <em>means</em> its clauses (FROM → WHERE →
+GROUP BY → HAVING → SELECT → ORDER BY), as opposed to the order they're
+written. <em>Here:</em> the executor's pipeline order, and the app's core lesson.</p>
+<p><strong>Relation</strong> — in relational algebra, a set of tuples with a schema; a
+"table-valued intermediate result." <em>Here:</em> <code>{cols, rows, sources}</code>, threaded
+through every operator.</p>
+<p><strong>Hash join</strong> — join by building a hash table on one input's keys and
+probing with the other: O(n + m) instead of O(n × m). <em>Here:</em> §11.</p>
+<p><strong>Nested-loop join</strong> — compare every pair; the only option without an
+equality predicate. <em>Here:</em> the fallback path, guarded.</p>
+<p><strong>Equi-join key vs. residual predicate</strong> — the part of an ON clause that is
+a clean <code>left = right</code> equality (usable as a hash key) versus everything else
+(must be tested per candidate pair). <em>Here:</em> the planner's classification.</p>
+<p><strong>Three-valued logic (3VL)</strong> — SQL's TRUE/FALSE/UNKNOWN, where any
+comparison with NULL yields UNKNOWN and UNKNOWN rejects rows. <em>Here:</em>
+<code>compareValues</code> returning <code>null</code>, <code>truthy()</code>.</p>
+<p><strong>Correlated subquery</strong> — a subquery referencing a column from the enclosing
+query, so it must be re-evaluated per outer row. <em>Here:</em> detected by the
+outer-scope tripwire.</p>
+<p><strong>Window function</strong> — computes over a set of related rows ("the window")
+<em>without</em> collapsing them, unlike aggregates with GROUP BY. <em>Here:</em>
+<code>row_number/rank/lag/…</code> plus aggregates with OVER.</p>
+<p><strong>Window frame</strong> — which rows within a partition a window function sees;
+the default with ORDER BY includes peers (ties), which is why running totals
+tie. <em>Here:</em> §10's window section.</p>
+<p><strong>Peer rows</strong> — rows tied on the ORDER BY key within a partition; they share
+a frame under the default RANGE semantics.</p>
+<p><strong>CTE (common table expression)</strong> — a named <code>WITH</code> subquery usable like a
+table. <em>Here:</em> executes first as a nested step group, then registers in the
+environment.</p>
+<p><strong>Projection / selection</strong> — relational algebra: projection chooses columns
+(SQL's SELECT list), selection chooses rows (SQL's WHERE). <em>Here:</em> two
+distinct pipeline stages, deliberately far apart in the ordering.</p>
+<p><strong>Cartesian product / cross join</strong> — every pairing of two inputs; what you
+get when a join condition is missing. <em>Here:</em> explained in the missing-ON
+error.</p>
+<p><strong>FLIP animation</strong> — "First, Last, Invert, Play": measure an element before
+and after a layout change, then animate the delta. Requires stable identity.
+<em>Here:</em> framer-motion <code>layout</code> on rows keyed by engine-assigned ids.</p>
+<p><strong>Differential testing</strong> — validating an implementation by comparing its
+output against a reference implementation on the same inputs, rather than
+against hand-written expectations. <em>Here:</em> <code>scripts/verify.ts</code> vs. Postgres.</p>
+<p><strong>Test oracle</strong> — whatever decides if output is correct. <em>Here:</em> Postgres for
+results; hand-written assertions for errors and steps.</p>
+<p><strong>Service container</strong> — a dependency (here, <code>postgres:16</code>) that CI runs
+alongside the job so integration tests use the real thing rather than a mock.</p>
+<p><strong>Graceful degradation</strong> — a feature that can't work in an environment
+disables itself with an explanation instead of failing. <em>Here:</em> the Postgres
+bridge on a static deploy.</p>
+<p><strong>Memoization</strong> — caching a pure function's result per input. <em>Here:</em>
+<code>isIntExpr</code> per AST node; aggregate values per group.</p>
+<p><strong>Idempotent/immutable state</strong> — the run is an immutable <code>Step[]</code>; the UI
+holds an index. Stepping backward needs no inverse operation.</p>
+<hr />
+<h2 id="appendix-c-crown-jewel-code">Appendix C — Crown-jewel code</h2>
+<p><em>Four excerpts worth being able to explain line by line. Lightly trimmed;
+<code>…</code> marks omissions.</em></p>
+<h3 id="c-1-the-join-planners-side-classification-executorts">C-1. The join planner's side classification (<code>executor.ts</code>)</h3>
+<p>Decides whether an ON conjunct can become a hash key. <code>bail</code> is the
+important part: anything the planner can't reason about cleanly (subqueries,
+aggregates, ambiguous or unknown columns) falls back to the safe path rather
+than guessing.</p>
+<pre><code class="language-ts">const sideOf = (e: Expr): 'left' | 'right' | 'both' | 'none' | 'bail' =&gt; {
+  let inL = false, inR = false, bail = false;
+  this.walk(e, (x) =&gt; {
+    if (x.kind === 'subquery' || x.kind === 'exists' || (x.kind === 'in' &amp;&amp; x.query)) bail = true;
+    if (x.kind === 'call' &amp;&amp; (x.over || AGG_FUNC_NAMES.has(x.name))) bail = true;
+    if (x.kind === 'col') {
+      let l = false, r = false;
+      try { l = this.findColIndex(x, left.cols) !== null; } catch { bail = true; }
+      try { r = this.findColIndex(x, right.cols) !== null; } catch { bail = true; }
+      if (l &amp;&amp; r) bail = true;          // ambiguous — let normal evaluation report it
+      else if (l) inL = true;
+      else if (r) inR = true;
+      else bail = true;                 // unknown column — normal evaluation raises it
+    }
+  });
+  if (bail) return 'bail';
+  if (inL &amp;&amp; inR) return 'both';
+  …
+};
+</code></pre>
+<p>Then: a conjunct whose sides split cleanly becomes <code>equiL[i] = equiR[i]</code>;
+everything else joins <code>residual[]</code> and is tested per candidate pair.</p>
+<h3 id="c-2-correlation-detection-by-tripwire-executorts">C-2. Correlation detection by tripwire (<code>executor.ts</code>)</h3>
+<pre><code class="language-ts">evalSubqueryRel(q: Query, ctx: Ctx, label: string): Relation {
+  const cached = this.subqCache.get(q);
+  if (cached) return cached;
+
+  const used = { hit: false };            // ← the tripwire
+  this.outerStack.push({ ctx, used });
+  try {
+    rel = this.execQuery(q, ctx.env, [...ctx.path, label]);
+  } finally {
+    this.outerStack.pop();
+  }
+  …
+  // narration branches on the same flag that decides caching
+  desc: used.hit
+    ? 'This subquery uses columns from the outer query (it is *correlated*), so it re-runs for every outer row…'
+    : 'This subquery does not depend on the outer row, so SQL evaluates it once and reuses the value. '
+  …
+  if (!used.hit) this.subqCache.set(q, rel);   // only uncorrelated results are cacheable
+  return rel;
+}
+</code></pre>
+<p><code>used.hit</code> is set inside column resolution, when a lookup misses every local
+scope and finds the name in an outer frame. One boolean answers "is this
+correlated," decides caching, and writes the explanation.</p>
+<h3 id="c-3-stable-row-identity-through-a-join-executorts">C-3. Stable row identity through a join (<code>executor.ts</code>)</h3>
+<pre><code class="language-ts">const row = { id: `${l.id}⋈${r.id}`, vals: [...l.vals, ...r.vals] };   // matched pair
+…
+const ghost = { id: `${l.id}⋈∅`, vals: [...l.vals, ...nullsR] };        // no match
+if (type === 'left' || type === 'full') {
+  resultRows.push(ghost);
+  rowStatus.set(ghost.id, 'new');
+  notes.set(ghost.id, 'no match — kept, filled with NULLs');
+} else if (type === 'inner') {
+  rowStatus.set(ghost.id, 'dropped');                       // shown, then removed
+  notes.set(ghost.id, 'no match — removed by INNER JOIN');
+}
+</code></pre>
+<p>Note that the inner-join case still <em>creates</em> the ghost row — it's pushed to
+the visualization but not to the result. That's the "show what was deleted"
+teaching move, and it's why inner vs. outer join is visible rather than
+described.</p>
+<h3 id="c-4-the-differential-comparison-scriptsverifyts">C-4. The differential comparison (<code>scripts/verify.ts</code>)</h3>
+<pre><code class="language-ts">function cellsEqual(a: string, b: string): boolean {
+  if (a === b) return true;
+  const na = Number(a), nb = Number(b);
+  if (!isNaN(na) &amp;&amp; !isNaN(nb) &amp;&amp; a.trim() !== '' &amp;&amp; b.trim() !== '') {
+    return Math.abs(na - nb) &lt;= 1e-6 * Math.max(1, Math.abs(na), Math.abs(nb));
+  }
+  return false;
+}
+</code></pre>
+<p>Three deliberate choices: NULLs are tokenized (<code>&lt;&lt;NULL&gt;&gt;</code>) so they compare as
+values rather than empty strings; floats compare with relative tolerance
+(both sides do IEEE arithmetic in different orders); and rows are compared as
+a <strong>multiset</strong> unless the query has a top-level ORDER BY — asserting an order
+SQL doesn't guarantee would produce false failures.</p>
+<hr />
+<h2 id="appendix-d-project-metrics">Appendix D — Project metrics</h2>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Total TypeScript (src + server)</td>
+<td>~5,460 lines</td>
+</tr>
+<tr>
+<td>SQL engine</td>
+<td>3,865 lines (executor ~2,100 · parser 878 · functions 319 · ast 215 · tokens 148 · values 109 · steps 72)</td>
+</tr>
+<tr>
+<td>React UI</td>
+<td>1,177 lines · CSS 1,090 lines</td>
+</tr>
+<tr>
+<td>Runtime dependencies</td>
+<td>4 declared; the <strong>browser bundle</strong> uses 3 (react, react-dom, framer-motion). <code>pg</code> is used only by the dev-server bridge. The <strong>SQL engine has zero</strong> — it's pure TypeScript</td>
+</tr>
+<tr>
+<td>SQL keywords tokenized</td>
+<td>60</td>
+</tr>
+<tr>
+<td>Scalar functions</td>
+<td>35, plus 5 aggregates and 8 window functions</td>
+</tr>
+<tr>
+<td>Error sites / with teaching hints</td>
+<td>65 / 38</td>
+</tr>
+<tr>
+<td>Curated examples</td>
+<td>21, across 6 teaching groups</td>
+</tr>
+<tr>
+<td>Unit tests</td>
+<td>74 (6 suites)</td>
+</tr>
+<tr>
+<td>Differential queries vs. Postgres</td>
+<td>63 — <strong>63/63 identical</strong></td>
+</tr>
+<tr>
+<td>Smoke cases</td>
+<td>26 (includes every example)</td>
+</tr>
+<tr>
+<td>CI stages</td>
+<td>typecheck → lint → unit → differential (postgres:16 service) → build</td>
+</tr>
+<tr>
+<td>Data sources</td>
+<td>3 (embedded, live Postgres, CSV) normalized to one <code>Dataset</code> shape</td>
+</tr>
+</tbody>
+</table>
+<p><em>Guide last updated for v1.1 — July 2026.</em></p>
+</body></html>
