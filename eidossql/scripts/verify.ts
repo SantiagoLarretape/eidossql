@@ -10,6 +10,7 @@
 import { execFileSync } from 'node:child_process';
 import { runQuery } from '../src/engine';
 import { datasets, parch } from '../src/data/datasets';
+import { northwind } from '../src/data/northwind';
 import type { Dataset } from '../src/data/datasets';
 import { isInterval, formatInterval } from '../src/engine/values';
 import type { Value } from '../src/engine/values';
@@ -32,12 +33,14 @@ function setupDb() {
   execFileSync('createdb', ['-h', 'localhost', DB], { encoding: 'utf8' });
   const stmts: string[] = [];
   for (const ds of datasets) {
+    // one schema per dataset — Parch & Posey and Northwind both have `orders`/`region`
+    stmts.push(`create schema "${ds.id}";`);
     for (const t of ds.tables) {
       const cols = t.columns.map((c) => `"${c.name}" ${pgType(c.type)}`).join(', ');
-      stmts.push(`create table "${t.name}" (${cols});`);
+      stmts.push(`create table "${ds.id}"."${t.name}" (${cols});`);
       for (const row of t.rows) {
         const vals = row.map((v) => (v === null ? 'NULL' : typeof v === 'number' ? String(v) : `'${String(v).replace(/'/g, "''")}'`)).join(', ');
-        stmts.push(`insert into "${t.name}" values (${vals});`);
+        stmts.push(`insert into "${ds.id}"."${t.name}" values (${vals});`);
       }
     }
   }
@@ -157,6 +160,17 @@ const CASES: Case[] = [
   { name: 'capstone lag in cte', ds: parch, sql: `with order_history as (select account_id, occurred_at, total_amt_usd, lag(total_amt_usd, 1) over (partition by account_id order by occurred_at) as previous_amt from orders) select *, (total_amt_usd - previous_amt) as change from order_history where previous_amt is not null;` },
   { name: 'standalone values', ds: parch, sql: "values (1, 'a'), (2, 'b'), (3, null);" },
   { name: 'cte column list over values', ds: parch, sql: `with months(mnum, mname) as (values (1,'January'), (2,'February'), (3,'March')) select r.name, m.mname from region r join months m on m.mnum = r.id order by r.id;`, ordered: true },
+  // --- Northwind (DSO 435 class database) — HW1/HW2 style ---
+  { name: 'nw select where', ds: northwind, sql: "select productid, productname, unitprice from products where unitprice > 50 and discontinued = 0;" },
+  { name: 'nw group by count', ds: northwind, sql: 'select country, count(*) as customers from customers group by country;' },
+  { name: 'nw group by having', ds: northwind, sql: 'select categoryid, count(*) as n, round(avg(unitprice)::numeric, 2) as avg_price from products group by categoryid having count(*) >= 10;' },
+  { name: 'nw inner join two tables', ds: northwind, sql: "select o.orderid, c.companyname, o.orderdate from orders o join customers c on c.customerid = o.customerid where o.orderdate < '1996-07-15';" },
+  { name: 'nw inner join three tables + aggregate', ds: northwind, sql: 'select c.categoryname, sum(od.quantity) as units from orderdetails od join products p on p.productid = od.productid join categories c on c.categoryid = p.categoryid group by c.categoryname;' },
+  { name: 'nw join with arithmetic', ds: northwind, sql: 'select od.orderid, sum(od.unitprice * od.quantity * (1 - od.discount)) as order_total from orderdetails od group by od.orderid having sum(od.unitprice * od.quantity * (1 - od.discount)) > 10000;' },
+  { name: 'nw self join reportsto', ds: northwind, sql: 'select e.lastname as employee, m.lastname as manager from employees e join employees m on m.employeeid = e.reportsto;' },
+  { name: 'nw left join is null', ds: northwind, sql: 'select c.customerid, c.companyname from customers c left join orders o on o.customerid = c.customerid where o.orderid is null;' },
+  { name: 'nw order by limit', ds: northwind, sql: 'select orderid, freight from orders order by freight desc, orderid limit 5;', ordered: true },
+  { name: 'nw employee territories 3-way', ds: northwind, sql: 'select e.lastname, count(distinct r.regionid) as regions from employees e join employeeterritories et on et.employeeid = e.employeeid join territories t on t.territoryid = et.territoryid join region r on r.regionid = t.regionid group by e.lastname;' },
 ];
 
 function main() {
@@ -179,7 +193,7 @@ function main() {
     }
     let pgRows: string[][];
     try {
-      pgRows = pgRun(c.sql);
+      pgRows = pgRun(`set search_path to "${c.ds.id}";\n${c.sql}`);
     } catch (err) {
       failures.push(`${c.name}: POSTGRES ERROR — ${(err as Error).message?.split('\n')[0]}`);
       continue;

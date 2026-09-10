@@ -50,6 +50,16 @@ A progression of ~20 curated examples mirrors the semester: SELECT basics →
 joins → aggregation → subqueries/CTEs → window functions → capstone queries
 at end-of-course difficulty.
 
+### Northwind is built in
+
+The **Database** menu also includes **Northwind (DSO 435 class DB)** — the full
+course database (830 orders, 2,155 order lines, 91 customers, 77 products),
+generated verbatim from the course's `northwind_postgreSQL.sql` so results
+match what students see in DBeaver row for row. It works on the hosted
+GitHub Pages build with no install, and the example menu has a Northwind
+group (joins, GROUP BY/HAVING, left join, self join). Column names are
+lowercase, exactly as Postgres folds them (`orderid`, `companyname`).
+
 ### …or connect your own database
 
 When running locally, **Database → "Connect your own Postgres…"** points
@@ -113,11 +123,11 @@ Three layers, shallowest to deepest:
   inference, and golden Postgres-semantics results (integer division,
   `NOT IN` with NULL, peer-inclusive running totals, …).
 - `npm run verify` — the **differential test**: loads the embedded dataset
-  into a scratch local Postgres database, runs a 63-query battery (all join
+  into a scratch local Postgres database, runs a 73-query battery (all join
   types on both planner paths, grouping edge cases, all window function
   classes, set ops, correlated subqueries, date/interval math, capstones)
   through both the engine and Postgres, and diffs results cell-by-cell.
-  Current status: **63/63 identical**.
+  Current status: **73/73 identical**.
 - **CI** (`.github/workflows/ci.yml`) runs all of it on every push:
   typecheck → oxlint → unit tests → the full differential suite against a
   real `postgres:16` service container → production build. A second

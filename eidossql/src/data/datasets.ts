@@ -2,6 +2,8 @@
 // (the class teaching database), trimmed so every row stays visible on screen.
 // To work with a full-size database, use “Connect your own Postgres” instead.
 
+import { northwind } from './northwind';
+
 export type ColType = 'integer' | 'numeric' | 'text' | 'timestamp' | 'date' | 'boolean';
 export interface ColumnDef { name: string; type: ColType }
 export interface TableData {
@@ -149,4 +151,4 @@ export const parch: Dataset = {
   ],
 };
 
-export const datasets: Dataset[] = [parch];
+export const datasets: Dataset[] = [parch, northwind];

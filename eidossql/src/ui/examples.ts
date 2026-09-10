@@ -4,7 +4,7 @@
 
 export interface Example {
   id: string;
-  dataset: 'parch';
+  dataset: 'parch' | 'northwind';
   group: string;
   label: string;
   sql: string;
@@ -115,5 +115,49 @@ export const EXAMPLES: Example[] = [
     id: 'capstone-lag', dataset: 'parch', group: '6 · Putting it together',
     label: 'Capstone — LAG inside a CTE',
     sql: `with order_history as (\n  select account_id, occurred_at, total_amt_usd,\n    lag(total_amt_usd, 1) over (partition by account_id\n                                order by occurred_at) as previous_amt\n  from orders\n)\nselect *, (total_amt_usd - previous_amt) as change\nfrom order_history\nwhere previous_amt is not null;`,
+  },
+  // --- Northwind: the DSO 435 class database (same rows as your DBeaver) ---
+  {
+    id: 'nw-join', dataset: 'northwind', group: '6 · Northwind (class DB)',
+    label: 'Inner join — orders with customer names',
+    sql: `select o.orderid, c.companyname, o.orderdate
+from orders o
+join customers c on c.customerid = o.customerid
+where o.orderdate < '1996-07-20';`,
+  },
+  {
+    id: 'nw-three-join', dataset: 'northwind', group: '6 · Northwind (class DB)',
+    label: 'Three-table join + aggregate — units sold per category',
+    sql: `select c.categoryname, sum(od.quantity) as units
+from orderdetails od
+join products p on p.productid = od.productid
+join categories c on c.categoryid = p.categoryid
+group by c.categoryname
+order by units desc;`,
+  },
+  {
+    id: 'nw-having', dataset: 'northwind', group: '6 · Northwind (class DB)',
+    label: 'GROUP BY + HAVING — countries with 5+ customers',
+    sql: `select country, count(*) as customers
+from customers
+group by country
+having count(*) >= 5
+order by customers desc;`,
+  },
+  {
+    id: 'nw-left-join', dataset: 'northwind', group: '6 · Northwind (class DB)',
+    label: 'Left join — customers who never ordered',
+    sql: `select c.customerid, c.companyname
+from customers c
+left join orders o on o.customerid = c.customerid
+where o.orderid is null;`,
+  },
+  {
+    id: 'nw-self-join', dataset: 'northwind', group: '6 · Northwind (class DB)',
+    label: 'Self join — each employee and their manager',
+    sql: `select e.firstname || ' ' || e.lastname as employee,
+       m.firstname || ' ' || m.lastname as manager
+from employees e
+join employees m on m.employeeid = e.reportsto;`,
   },
 ];
