@@ -174,7 +174,27 @@ class Parser {
       if (t.type !== 'num') throw this.err('OFFSET expects a number', t);
       this.next();
       offset = parseInt(t.text, 10);
-      limitSpan = { start: limitSpan?.start ?? oTok.start, end: t.end };
+      // SQL-standard spelling: OFFSET n ROWS
+      if (this.isWord('ROW') || this.isWord('ROWS')) this.next();
+      limitSpan = { start: limitSpan?.start ?? oTok.start, end: this.toks[this.pos - 1].end };
+    }
+    // SQL-standard alternative to LIMIT: FETCH { FIRST | NEXT } [ n ] { ROW | ROWS } ONLY
+    if (this.isWord('FETCH')) {
+      const fTok = this.next();
+      if (limit !== undefined) throw this.err('Use either LIMIT or FETCH FIRST, not both', fTok);
+      if (!this.matchWord('FIRST') && !this.matchWord('NEXT')) {
+        throw this.err("FETCH must be followed by FIRST or NEXT (e.g. FETCH FIRST 10 ROWS ONLY)", this.peek());
+      }
+      let n = 1;
+      if (this.peek().type === 'num') n = parseInt(this.next().text, 10);
+      if (!this.matchWord('ROWS') && !this.matchWord('ROW')) {
+        throw this.err("Expected ROWS after the count (e.g. FETCH FIRST 10 ROWS ONLY)", this.peek());
+      }
+      if (!this.matchWord('ONLY')) {
+        throw this.err("FETCH FIRST … must end with ONLY (WITH TIES is not supported here)", this.peek());
+      }
+      limit = n;
+      limitSpan = { start: limitSpan?.start ?? fTok.start, end: this.toks[this.pos - 1].end };
     }
 
     const endTok = this.toks[this.pos - 1] ?? startTok;

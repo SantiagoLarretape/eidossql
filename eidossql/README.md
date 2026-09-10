@@ -111,11 +111,20 @@ three-valued NULL logic, integer division, `UNION` dedup, default window
 frames (running totals include peer rows), `EXTRACT` on timestamp
 differences, and correlated subqueries.
 
+### Known deviation: `real` columns
+
+Northwind stores `unitprice`, `discount` and `freight` as 32-bit `real`.
+Postgres does that arithmetic in single precision, so a sum like
+`sum(unitprice * quantity * (1 - discount))` prints `16387.49998714775` in
+DBeaver; EidosSQL computes in double precision and shows `16387.5`. Same rows,
+same order — only the trailing float noise differs. Cast to `numeric` in
+Postgres if you want the clean number there too.
+
 ### Testing & CI
 
 Three layers, shallowest to deepest:
 
-- `npm test` — 74 Vitest unit tests that run anywhere, no database needed:
+- `npm test` — 78 Vitest unit tests that run anywhere, no database needed:
   the **teaching-error catalog** (every classic student mistake pinned to
   its message and hint), **step structure** (phase order, kept/dropped row
   marks, stable row identities, timeline source-coloring), value semantics

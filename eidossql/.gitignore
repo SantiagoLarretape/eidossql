@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# IA-only: contains HW answer keys — never publish
+scripts/hw1check.ts
+scripts/hw*check.ts

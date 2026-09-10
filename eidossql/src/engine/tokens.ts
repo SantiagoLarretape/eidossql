@@ -33,6 +33,7 @@ export const KEYWORDS = new Set([
   'EXCEPT', 'DISTINCT', 'WITH', 'EXISTS', 'EXTRACT', 'CAST', 'OVER', 'PARTITION',
   'ASC', 'DESC', 'NULLS', 'FIRST', 'LAST', 'INTERVAL', 'ROWS', 'UNBOUNDED',
   'PRECEDING', 'FOLLOWING', 'CURRENT', 'ROW', 'DATE', 'TIMESTAMP',
+  'FETCH', 'ONLY',
 ]);
 
 const OPS = ['<>', '!=', '<=', '>=', '||', '::', '=', '<', '>', '+', '-', '*', '/', '%'];
